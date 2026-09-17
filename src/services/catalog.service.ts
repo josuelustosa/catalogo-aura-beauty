@@ -1,4 +1,4 @@
-import { PRODUCTS } from "../data/products.mock";
+import { PRODUCTS } from "../data/products.generated";
 import { getCatalogNavItemBySlug } from "../mocks/nav-item.mock";
 import type { Product } from "../types/product.type";
 import { normalizeCatalogText } from "../utils/normalize-catalog-text";
