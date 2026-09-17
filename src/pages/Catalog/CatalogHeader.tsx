@@ -11,7 +11,9 @@ function CatalogHeader({
 }: CatalogHeaderProps) {
   return (
     <div className="my-8 flex flex-col gap-4 border-b border-divider pb-4 sm:flex-row sm:items-center sm:justify-between">
-      <h1 className="text-xl font-bold text-text-brand sm:text-2xl">{title}</h1>
+      <h1 className="font-display text-xl font-normal text-text-brand sm:text-2xl">
+        {title}
+      </h1>
 
       <div className="relative w-full sm:max-w-xs">
         <svg

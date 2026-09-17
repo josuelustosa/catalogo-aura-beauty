@@ -382,6 +382,40 @@ A ordem é deliberada e diferente do óbvio: **dados e imagens vêm antes do SSG
 
 S4 pode andar em paralelo com S1–S3: mexe em outros arquivos.
 
+### 10.1 Estrutura de Pull Request
+
+A descrição da PR deve explicar **o resultado e como validá-lo**, sem repetir o
+diff arquivo por arquivo. Use a estrutura abaixo, adaptando os tópicos ao escopo
+da branch:
+
+```md
+## Resumo
+
+Explique em um ou dois parágrafos o que a PR entrega e por que a mudança é
+necessária.
+
+## Principais alterações
+
+- Agrupe as mudanças por comportamento ou área do projeto.
+- Destaque decisões técnicas relevantes e efeitos visíveis para o usuário.
+
+## Como validar
+
+- [ ] Liste os comandos executados (`npm run build`, `npm run lint`, etc.).
+- [ ] Descreva somente as verificações manuais necessárias para revisar a PR.
+
+## Pendências conhecidas
+
+- Registre limitações ou itens deliberadamente deixados para outra issue.
+- Se não houver, escreva `Nenhuma`.
+
+Closes #<issue>
+```
+
+O título segue **Conventional Commits**. Quando uma PR contemplar várias issues,
+adicione uma linha `Closes #<issue>` para cada uma; o GitHub as fecha somente
+quando a PR é integrada à branch principal.
+
 ---
 
 ## 11. Issues

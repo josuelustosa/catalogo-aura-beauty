@@ -7,7 +7,7 @@ function CatalogHome() {
   return (
     <Container>
       <div className="my-8 border-b border-divider pb-4">
-        <h1 className="text-xl font-bold text-text-brand sm:text-2xl">
+        <h1 className="font-display text-xl font-normal text-text-brand sm:text-2xl">
           Escolha um catálogo
         </h1>
 

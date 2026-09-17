@@ -191,6 +191,22 @@ Padrões visuais em uso: foco com `focus-visible:ring-2 ring-focus-ring`,
 feedback de clique com `active:scale-95`, cards em `rounded-lg border-border
 bg-surface shadow-sm`, imagens `aspect-square` com `loading="lazy"`.
 
+### Tipografia
+
+As fontes do Google Fonts são entregues localmente pelos pacotes Fontsource,
+sem requisições a serviços externos no navegador:
+
+- `--font-sans`: **Inter Variable**, somente Latin e eixo de peso normal
+  100–900; fonte estrutural da interface, do texto e dos controles;
+- `--font-display`: **DM Serif Display**, somente Latin e peso 400 normal;
+  fonte editorial aplicada explicitamente aos títulos dos catálogos e,
+  futuramente, aos títulos de seção da Home.
+
+Não aplique a fonte display globalmente aos elementos `h1`–`h3`: títulos de
+produto e demais conteúdos funcionais continuam em Inter. As duas fontes usam
+`font-display: swap`, têm fallback local e são pré-carregadas em `index.html`
+porque aparecem acima da dobra.
+
 **Estados vazios passam por `<EmptyState>`.** Nada de `<p>` centralizado solto:
 o componente padroniza mensagem e saída (um `to`, que vira `Link`, **ou** um
 `onClick`, que vira `button` — nunca os dois). Novos estados vazios devem
