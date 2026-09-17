@@ -1,6 +1,7 @@
 import { PRODUCTS } from "../data/products.mock";
 import { getCatalogNavItemBySlug } from "../mocks/nav-item.mock";
 import type { Product } from "../types/product.type";
+import { normalizeCatalogText } from "../utils/normalize-catalog-text";
 
 export type CatalogBrandGroup = {
   brand: string;
@@ -17,18 +18,12 @@ export type CatalogView = {
 /**
  * A planilha é editada à mão, então "boticário " e "Boticario" precisam casar.
  */
-function normalize(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
 export function getProductsByBrands(brands: readonly string[]): Product[] {
-  const wanted = new Set(brands.map(normalize));
+  const wanted = new Set(brands.map(normalizeCatalogText));
 
-  return PRODUCTS.filter((product) => wanted.has(normalize(product.brand)));
+  return PRODUCTS.filter((product) =>
+    wanted.has(normalizeCatalogText(product.brand)),
+  );
 }
 
 /**
@@ -36,7 +31,7 @@ export function getProductsByBrands(brands: readonly string[]): Product[] {
  * porque o usuário digita sem acento ("boticario") e a planilha tem acento.
  */
 export function searchProducts(products: Product[], term: string): Product[] {
-  const query = normalize(term);
+  const query = normalizeCatalogText(term);
 
   if (!query) {
     return products;
@@ -44,8 +39,8 @@ export function searchProducts(products: Product[], term: string): Product[] {
 
   return products.filter(
     (product) =>
-      normalize(product.title).includes(query) ||
-      normalize(product.brand).includes(query),
+      normalizeCatalogText(product.title).includes(query) ||
+      normalizeCatalogText(product.brand).includes(query),
   );
 }
 
@@ -55,7 +50,7 @@ export function groupByBrand(products: Product[]): CatalogBrandGroup[] {
   const indexByBrand = new Map<string, number>();
 
   for (const product of products) {
-    const key = normalize(product.brand);
+    const key = normalizeCatalogText(product.brand);
     const index = indexByBrand.get(key);
 
     if (index === undefined) {
