@@ -13,4 +13,6 @@ export type Product = {
   /** Preço promocional. Quando presente, é o valor em destaque no card. */
   promoPrice?: number;
   imageUrl?: string;
+  /** Indica que o produto deve aparecer na secao de destaques. */
+  featured?: boolean;
 };

@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+src/data/products.generated.ts
 *.local
 
 # Variaveis de ambiente
