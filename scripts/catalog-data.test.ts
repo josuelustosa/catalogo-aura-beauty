@@ -62,21 +62,36 @@ describe("isBlankRow", () => {
 describe("parseRow", () => {
   it("rejeita preco invalido, titulo vazio e id vazio", () => {
     expect(parseRow(validRow({ 3: "100" }), 2, 0)).toMatchObject({
-      kind: "ignored",
+      kind: "rejected",
       warnings: [{ line: 2, message: expect.stringContaining("preco") }],
     });
-    expect(parseRow(validRow({ 2: "  " }), 3, 1).kind).toBe("ignored");
-    expect(parseRow(validRow({ 0: "  " }), 4, 2).kind).toBe("ignored");
+    expect(parseRow(validRow({ 2: "  " }), 3, 1).kind).toBe("rejected");
+    expect(parseRow(validRow({ 0: "  " }), 4, 2).kind).toBe("rejected");
   });
 
   it("canonicaliza marcas e rejeita marca desconhecida", () => {
-    const canonical = parseRow(validRow({ 1: " boticario " }), 2, 0);
-    expect(canonical).toMatchObject({
+    expect(parseRow(validRow({ 1: " boticario " }), 2, 0)).toMatchObject({
       kind: "accepted",
       value: { product: { brand: "Boticário" } },
+      warnings: [{ line: 2, message: "marca canonicalizada: Boticário" }],
     });
-    expect(canonical.warnings).toHaveLength(1);
-    expect(parseRow(validRow({ 1: "Outra marca" }), 2, 0).kind).toBe("ignored");
+    expect(parseRow(validRow({ 1: "Outra marca" }), 2, 0).kind).toBe(
+      "rejected",
+    );
+  });
+
+  it("so publica com ativo marcado e rejeita valor estranho em ativo", () => {
+    expect(parseRow(validRow({ 6: "TRUE" }), 2, 0).kind).toBe("accepted");
+    expect(parseRow(validRow({ 6: "FALSE" }), 2, 0).kind).toBe("inactive");
+    expect(parseRow(validRow({ 6: "" }), 2, 0).kind).toBe("inactive");
+    expect(parseRow(validRow().slice(0, 6), 2, 0).kind).toBe("inactive");
+    expect(parseRow(validRow({ 6: false, 3: "abc" }), 2, 0).kind).toBe(
+      "inactive",
+    );
+    expect(parseRow(validRow({ 6: "Sim" }), 2, 0)).toEqual({
+      kind: "rejected",
+      warnings: [{ line: 2, message: "ativo invalido: Sim" }],
+    });
   });
 
   it("descarta promocao invalida, mantem imagem vazia e omite inativo", () => {
@@ -92,8 +107,7 @@ describe("parseRow", () => {
     }
 
     expect(parseRow(validRow({ 6: false }), 2, 0)).toEqual({
-      kind: "ignored",
-      warnings: [],
+      kind: "inactive",
     });
   });
 });

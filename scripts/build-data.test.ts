@@ -196,6 +196,46 @@ describe("buildCatalog", () => {
     ).rejects.toThrow("disjuntor");
   });
 
+  it("nao deixa as linhas inativas diluirem o disjuntor", async () => {
+    const inactiveRows = Array.from({ length: 100 }, (_, index) =>
+      validRow(`INA-${String(index + 1).padStart(3, "0")}`).map(
+        (value, column) => (column === 6 ? false : value),
+      ),
+    );
+    const textPrices = Array.from({ length: 20 }, (_, index) =>
+      validRow(`BOT-${String(index + 1).padStart(3, "0")}`).map(
+        (value, column) => (column === 3 ? "189,50" : value),
+      ),
+    );
+
+    await expect(
+      buildCatalog({
+        env: credentials,
+        fetcher: sheetsFetcher([
+          EXPECTED_HEADERS,
+          ...inactiveRows,
+          ...textPrices,
+        ]),
+      }),
+    ).rejects.toThrow("disjuntor acionado: 20/20");
+  });
+
+  it("aceita catalogo vazio quando todas as linhas estao inativas", async () => {
+    const inactive = (id: string) =>
+      validRow(id).map((value, column) => (column === 6 ? false : value));
+
+    await expect(
+      buildCatalog({
+        env: credentials,
+        fetcher: sheetsFetcher([
+          EXPECTED_HEADERS,
+          inactive("BOT-001"),
+          inactive("BOT-002"),
+        ]),
+      }),
+    ).resolves.toMatchObject({ products: [], rejected: 0, inactive: 2 });
+  });
+
   it("emite o resumo final greppavel", async () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
     const warning = vi

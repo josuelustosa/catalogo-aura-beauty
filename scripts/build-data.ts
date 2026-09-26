@@ -37,6 +37,7 @@ export type BuildResult = {
   products: Product[];
   warnings: CatalogWarning[];
   rejected: number;
+  inactive: number;
   usedFallback: boolean;
   output: string;
 };
@@ -152,6 +153,7 @@ function fallbackResult(): BuildResult {
     products: FALLBACK_PRODUCTS,
     warnings: [],
     rejected: 0,
+    inactive: 0,
     usedFallback: true,
     output: serializeProducts(FALLBACK_PRODUCTS),
   };
@@ -209,24 +211,30 @@ export async function buildCatalog(
   const warnings: CatalogWarning[] = [];
   const accepted: AcceptedProduct[] = [];
   let rejected = 0;
+  let inactive = 0;
 
   dataRows.forEach(({ line, cells }, index) => {
     const parsed = parseRow(cells, line, index);
+
+    if (parsed.kind === "inactive") {
+      inactive += 1;
+      return;
+    }
+
     warnings.push(...parsed.warnings);
 
     if (parsed.kind === "accepted") {
       accepted.push(parsed.value);
-      return;
-    }
-
-    if (parsed.warnings.length > 0) {
+    } else {
       rejected += 1;
     }
   });
 
-  if (rejected / dataRows.length > 0.2) {
+  // Inativas fora do denominador: senão diluiriam uma coluna de preço quebrada.
+  const evaluated = accepted.length + rejected;
+  if (evaluated > 0 && rejected / evaluated > 0.2) {
     throw new CatalogBuildError(
-      `disjuntor acionado: ${rejected}/${dataRows.length} linhas rejeitadas`,
+      `disjuntor acionado: ${rejected}/${evaluated} linhas avaliadas rejeitadas`,
     );
   }
 
@@ -235,6 +243,7 @@ export async function buildCatalog(
     products,
     warnings,
     rejected,
+    inactive,
     usedFallback: false,
     output: serializeProducts(products),
   };

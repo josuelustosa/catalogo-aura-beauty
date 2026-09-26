@@ -33,7 +33,8 @@ export type AcceptedProduct = {
 
 export type ParseRowResult =
   | { kind: "accepted"; value: AcceptedProduct; warnings: CatalogWarning[] }
-  | { kind: "ignored"; warnings: CatalogWarning[] };
+  | { kind: "rejected"; warnings: CatalogWarning[] }
+  | { kind: "inactive" };
 
 function textCell(value: unknown): string {
   if (typeof value === "string") {
@@ -74,6 +75,19 @@ function isTrue(value: unknown): boolean {
   );
 }
 
+/** Célula vazia conta como inativa: apagar a caixa de seleção remove a caixa. */
+function activeState(value: unknown): "active" | "inactive" | "invalid" {
+  if (isTrue(value)) {
+    return "active";
+  }
+
+  if (isFalse(value) || isEmptyCell(value)) {
+    return "inactive";
+  }
+
+  return "invalid";
+}
+
 function validPositiveNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
@@ -109,14 +123,22 @@ export function parseRow(
   line: number,
   rowIndex: number,
 ): ParseRowResult {
-  if (isFalse(row[6])) {
-    return { kind: "ignored", warnings: [] };
+  const active = activeState(row[6]);
+  if (active === "inactive") {
+    return { kind: "inactive" };
+  }
+
+  if (active === "invalid") {
+    return {
+      kind: "rejected",
+      warnings: [{ line, message: `ativo invalido: ${String(row[6])}` }],
+    };
   }
 
   const id = textCell(row[0]);
   if (!id) {
     return {
-      kind: "ignored",
+      kind: "rejected",
       warnings: [{ line, message: "id vazio" }],
     };
   }
@@ -124,7 +146,7 @@ export function parseRow(
   const title = textCell(row[2]);
   if (!title) {
     return {
-      kind: "ignored",
+      kind: "rejected",
       warnings: [{ line, message: "titulo vazio" }],
     };
   }
@@ -132,7 +154,7 @@ export function parseRow(
   const price = row[3];
   if (!validPositiveNumber(price)) {
     return {
-      kind: "ignored",
+      kind: "rejected",
       warnings: [{ line, message: "preco ausente, invalido ou nao positivo" }],
     };
   }
@@ -145,7 +167,7 @@ export function parseRow(
 
   if (brandRank === -1) {
     return {
-      kind: "ignored",
+      kind: "rejected",
       warnings: [
         { line, message: `marca desconhecida: ${rawBrand || "(vazia)"}` },
       ],
