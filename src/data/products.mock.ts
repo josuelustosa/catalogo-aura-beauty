@@ -1,9 +1,9 @@
 import type { Product } from "../types/product.type";
 
 /**
- * Retorno bruto simulado da Planilha Google: uma lista plana com os produtos
- * de todas as marcas, na ordem em que foram cadastrados. Nenhum recorte por
- * marca acontece aqui — isso é responsabilidade de `services/catalog.service`.
+ * Fixture de fallback e de teste: alimenta `products.generated.ts` quando o
+ * build roda sem credencial da planilha. Nenhum recorte por marca acontece
+ * aqui — isso é responsabilidade de `services/catalog.service`.
  */
 export const PRODUCTS: Product[] = [
   {
