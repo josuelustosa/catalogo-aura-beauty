@@ -17,6 +17,8 @@ export const EXPECTED_HEADERS = [
 
 export const CATALOG_BRANDS = CATALOG_NAV_ITEMS.flatMap((item) => item.brands);
 
+const PRODUCT_DATA_COLUMNS = EXPECTED_HEADERS.indexOf("imagem_url") + 1;
+
 export type CatalogWarning = {
   line: number;
   message: string;
@@ -43,6 +45,19 @@ function textCell(value: unknown): string {
   }
 
   return "";
+}
+
+function isEmptyCell(value: unknown): boolean {
+  return (
+    value === undefined ||
+    value === null ||
+    (typeof value === "string" && value.trim() === "")
+  );
+}
+
+/** Só A–F contam: as caixas de seleção fazem a API devolver a aba inteira. */
+export function isBlankRow(row: readonly unknown[]): boolean {
+  return row.slice(0, PRODUCT_DATA_COLUMNS).every(isEmptyCell);
 }
 
 function isFalse(value: unknown): boolean {

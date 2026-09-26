@@ -15,6 +15,11 @@ const validRow = (id = "BOT-001"): unknown[] => [
   "",
 ];
 
+const blankRow = (): unknown[] => ["", "", "", "", "", "", false, "", false];
+
+const blankRows = (count: number): unknown[][] =>
+  Array.from({ length: count }, blankRow);
+
 function response(body: unknown, status = 200) {
   return {
     ok: status >= 200 && status < 300,
@@ -97,6 +102,76 @@ describe("buildCatalog", () => {
     await expect(
       buildCatalog({ env: credentials, fetcher: createFetcher() }),
     ).rejects.toBeInstanceOf(CatalogBuildError);
+  });
+
+  it("trata a aba so com caixas de selecao como vazia", async () => {
+    await expect(
+      buildCatalog({
+        env: credentials,
+        fetcher: sheetsFetcher([EXPECTED_HEADERS, ...blankRows(999)]),
+      }),
+    ).rejects.toThrow("nao contem linhas de dados");
+  });
+
+  it("trata o intervalo sem valores como aba vazia", async () => {
+    await expect(
+      buildCatalog({
+        env: credentials,
+        fetcher: vi.fn(async () => response({ range: "produtos!A1:J1000" })),
+      }),
+    ).rejects.toThrow("cabecalho");
+  });
+
+  it("nao deixa as linhas vazias diluirem o disjuntor", async () => {
+    const textPrices = Array.from({ length: 30 }, (_, index) =>
+      validRow(`BOT-${String(index + 1).padStart(3, "0")}`).map(
+        (value, column) => (column === 3 ? "189,50" : value),
+      ),
+    );
+
+    await expect(
+      buildCatalog({
+        env: credentials,
+        fetcher: sheetsFetcher([
+          EXPECTED_HEADERS,
+          ...textPrices,
+          ...blankRows(969),
+        ]),
+      }),
+    ).rejects.toThrow("disjuntor");
+  });
+
+  it("preserva o numero da linha com linhas vazias intercaladas", async () => {
+    await expect(
+      buildCatalog({
+        env: credentials,
+        fetcher: sheetsFetcher([
+          EXPECTED_HEADERS,
+          blankRow(),
+          validRow(),
+          blankRow(),
+          validRow(),
+        ]),
+      }),
+    ).rejects.toThrow("linhas 3 e 5");
+
+    const result = await buildCatalog({
+      env: credentials,
+      fetcher: sheetsFetcher([
+        EXPECTED_HEADERS,
+        blankRow(),
+        validRow("BOT-001"),
+        [],
+        validRow("BOT-002").map((value, column) =>
+          column === 4 ? 200 : value,
+        ),
+      ]),
+    });
+
+    expect(result.products).toHaveLength(2);
+    expect(result.warnings).toEqual([
+      { line: 5, message: "preco promocional descartado" },
+    ]);
   });
 
   it("aceita exatamente 20% de rejeicoes e falha acima disso", async () => {

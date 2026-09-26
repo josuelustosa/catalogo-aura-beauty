@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { PRODUCTS as FALLBACK_PRODUCTS } from "../src/data/products.mock.ts";
 import type { Product } from "../src/types/product.type.ts";
 import {
+  isBlankRow,
   parseRow,
   serializeProducts,
   sortProducts,
@@ -20,6 +21,11 @@ type FetchResponse = {
 };
 
 type Fetcher = (url: URL) => Promise<FetchResponse>;
+
+type SheetRow = {
+  line: number;
+  cells: readonly unknown[];
+};
 
 export type BuildOptions = {
   env?: NodeJS.ProcessEnv;
@@ -89,25 +95,36 @@ async function fetchRows(
     );
   }
 
-  if (
-    typeof body !== "object" ||
-    body === null ||
-    !("values" in body) ||
-    !isRows(body.values)
-  ) {
+  if (typeof body !== "object" || body === null) {
     throw new CatalogBuildError(
       `Sheets API devolveu corpo invalido para ${range}`,
     );
   }
 
-  return body.values;
+  // Intervalo sem nenhuma célula preenchida volta sem a chave `values`.
+  const values = "values" in body ? body.values : [];
+  if (!isRows(values)) {
+    throw new CatalogBuildError(
+      `Sheets API devolveu corpo invalido para ${range}`,
+    );
+  }
+
+  return values;
 }
 
-function assertUniqueIds(rows: readonly (readonly unknown[])[]): void {
+/** Descarta as linhas vazias preservando o número de linha da planilha. */
+function productRowsOf(values: readonly (readonly unknown[])[]): SheetRow[] {
+  return values
+    .slice(1)
+    .map((cells, index) => ({ line: index + 2, cells }))
+    .filter(({ cells }) => !isBlankRow(cells));
+}
+
+function assertUniqueIds(rows: readonly SheetRow[]): void {
   const linesById = new Map<string, number>();
 
-  rows.forEach((row, index) => {
-    const value = row[0];
+  rows.forEach(({ line, cells }) => {
+    const value = cells[0];
     const id =
       typeof value === "string"
         ? value.trim()
@@ -122,11 +139,11 @@ function assertUniqueIds(rows: readonly (readonly unknown[])[]): void {
     const previousLine = linesById.get(id);
     if (previousLine !== undefined) {
       throw new CatalogBuildError(
-        `id duplicado "${id}" nas linhas ${previousLine} e ${index + 2}`,
+        `id duplicado "${id}" nas linhas ${previousLine} e ${line}`,
       );
     }
 
-    linesById.set(id, index + 2);
+    linesById.set(id, line);
   });
 }
 
@@ -178,7 +195,7 @@ export async function buildCatalog(
     throw new CatalogBuildError("cabecalho de produtos diverge do contrato");
   }
 
-  const dataRows = productRows.slice(1);
+  const dataRows = productRowsOf(productRows);
   if (dataRows.length === 0) {
     throw new CatalogBuildError("a aba de produtos nao contem linhas de dados");
   }
@@ -193,8 +210,8 @@ export async function buildCatalog(
   const accepted: AcceptedProduct[] = [];
   let rejected = 0;
 
-  dataRows.forEach((row, index) => {
-    const parsed = parseRow(row, index + 2, index);
+  dataRows.forEach(({ line, cells }, index) => {
+    const parsed = parseRow(cells, line, index);
     warnings.push(...parsed.warnings);
 
     if (parsed.kind === "accepted") {

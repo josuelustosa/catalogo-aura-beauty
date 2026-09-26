@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CATALOG_BRANDS,
   EXPECTED_HEADERS,
+  isBlankRow,
   parseRow,
   serializeProducts,
   sortProducts,
@@ -41,6 +42,20 @@ describe("contrato da planilha", () => {
       validateBrands([["marca"], ...CATALOG_BRANDS.map((brand) => [brand])]),
     ).toBe(true);
     expect(validateBrands([["Marca desconhecida"]])).toBe(false);
+  });
+});
+
+describe("isBlankRow", () => {
+  it("considera vazia a linha sem dado de produto nas colunas A-F", () => {
+    expect(isBlankRow([])).toBe(true);
+    expect(isBlankRow(["", "", "", "", "", "", false, "", false])).toBe(true);
+    expect(isBlankRow(["", " ", "", "", "", "", true, "", true])).toBe(true);
+    expect(isBlankRow(["", "", "", "", "", "", false, 3, false, 46000])).toBe(
+      true,
+    );
+    expect(isBlankRow(["BOT-001"])).toBe(false);
+    expect(isBlankRow(["", "", "Produto sem id"])).toBe(false);
+    expect(isBlankRow(["", "", "", 0])).toBe(false);
   });
 });
 
