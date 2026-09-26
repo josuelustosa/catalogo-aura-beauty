@@ -41,6 +41,8 @@ export type BuildResult = {
   usedFallback: boolean;
   /** Aba lida ou `"mock"`; sai no resumo do log. */
   source: string;
+  /** Erro que o `ALLOW_STALE_CATALOG` engoliu num preview. */
+  staleReason?: string;
   output: string;
 };
 
@@ -165,35 +167,17 @@ function fallbackResult(): BuildResult {
   };
 }
 
-export async function buildCatalog(
-  options: BuildOptions = {},
+/** Compara com "preview", não com "≠ production": ambiente desconhecido falha. */
+function allowsStaleCatalog(env: NodeJS.ProcessEnv): boolean {
+  return env.ALLOW_STALE_CATALOG === "1" && env.VERCEL_ENV === "preview";
+}
+
+async function readSheetCatalog(
+  spreadsheetId: string,
+  apiKey: string,
+  tab: string,
+  fetcher: Fetcher,
 ): Promise<BuildResult> {
-  const env = options.env ?? process.env;
-  if (options.forceFallback) {
-    return fallbackResult();
-  }
-
-  const spreadsheetId = env.GOOGLE_SHEETS_ID;
-  const apiKey = env.GOOGLE_SHEETS_API_KEY;
-
-  if (!spreadsheetId && !apiKey) {
-    if (env.VERCEL) {
-      throw new CatalogBuildError(
-        "GOOGLE_SHEETS_ID e GOOGLE_SHEETS_API_KEY sao obrigatorias na Vercel",
-      );
-    }
-
-    return fallbackResult();
-  }
-
-  if (!spreadsheetId || !apiKey) {
-    throw new CatalogBuildError(
-      "GOOGLE_SHEETS_ID e GOOGLE_SHEETS_API_KEY devem ser informadas juntas",
-    );
-  }
-
-  const fetcher: Fetcher = options.fetcher ?? ((url) => fetch(url));
-  const tab = selectedSheetTab(env);
   const [productRows, brandRows] = await Promise.all([
     fetchRows(spreadsheetId, `${tab}!A:J`, apiKey, fetcher),
     fetchRows(spreadsheetId, "_marcas!A:A", apiKey, fetcher),
@@ -256,6 +240,47 @@ export async function buildCatalog(
   };
 }
 
+export async function buildCatalog(
+  options: BuildOptions = {},
+): Promise<BuildResult> {
+  const env = options.env ?? process.env;
+  if (options.forceFallback) {
+    return fallbackResult();
+  }
+
+  const spreadsheetId = env.GOOGLE_SHEETS_ID;
+  const apiKey = env.GOOGLE_SHEETS_API_KEY;
+
+  if (!spreadsheetId && !apiKey) {
+    if (env.VERCEL) {
+      throw new CatalogBuildError(
+        "GOOGLE_SHEETS_ID e GOOGLE_SHEETS_API_KEY sao obrigatorias na Vercel",
+      );
+    }
+
+    return fallbackResult();
+  }
+
+  if (!spreadsheetId || !apiKey) {
+    throw new CatalogBuildError(
+      "GOOGLE_SHEETS_ID e GOOGLE_SHEETS_API_KEY devem ser informadas juntas",
+    );
+  }
+
+  const fetcher: Fetcher = options.fetcher ?? ((url) => fetch(url));
+  const tab = selectedSheetTab(env);
+
+  try {
+    return await readSheetCatalog(spreadsheetId, apiKey, tab, fetcher);
+  } catch (error) {
+    if (error instanceof CatalogBuildError && allowsStaleCatalog(env)) {
+      return { ...fallbackResult(), staleReason: error.message };
+    }
+
+    throw error;
+  }
+}
+
 async function writeGenerated(output: string): Promise<void> {
   const temporaryPath = `${outputPath}.${process.pid}.tmp`;
   await mkdir(path.dirname(outputPath), { recursive: true });
@@ -272,7 +297,11 @@ export async function run(options: BuildOptions = {}): Promise<BuildResult> {
   const result = await buildCatalog(options);
   await writeGenerated(result.output);
 
-  if (result.usedFallback) {
+  if (result.staleReason) {
+    console.warn(
+      `[catalogo] aviso=planilha rejeitada (${result.staleReason}); ALLOW_STALE_CATALOG=1, usando products.mock.ts`,
+    );
+  } else if (result.usedFallback) {
     console.warn("[catalogo] sem credenciais; usando products.mock.ts");
   }
 

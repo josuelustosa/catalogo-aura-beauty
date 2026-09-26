@@ -283,3 +283,79 @@ describe("buildCatalog", () => {
     warning.mockRestore();
   });
 });
+
+describe("ALLOW_STALE_CATALOG", () => {
+  const preview = {
+    ...credentials,
+    ALLOW_STALE_CATALOG: "1",
+    VERCEL: "1",
+    VERCEL_ENV: "preview",
+  };
+  const failing = () => vi.fn(async () => response({}, 500));
+
+  it("troca a planilha invalida pelo mock em preview", async () => {
+    await expect(
+      buildCatalog({ env: preview, fetcher: failing() }),
+    ).resolves.toMatchObject({
+      usedFallback: true,
+      source: "mock",
+      staleReason: expect.stringContaining("HTTP 500"),
+    });
+
+    const brokenPrice = validRow().map((value, column) =>
+      column === 3 ? "abc" : value,
+    );
+    await expect(
+      buildCatalog({
+        env: preview,
+        fetcher: sheetsFetcher([EXPECTED_HEADERS, brokenPrice]),
+      }),
+    ).resolves.toMatchObject({
+      source: "mock",
+      staleReason: expect.stringContaining("disjuntor"),
+    });
+  });
+
+  it.each([
+    ["producao", { VERCEL_ENV: "production" }],
+    ["ambiente desconhecido", { VERCEL_ENV: undefined }],
+    ["variavel diferente de 1", { ALLOW_STALE_CATALOG: "true" }],
+  ])("falha em %s", async (_description, override) => {
+    await expect(
+      buildCatalog({ env: { ...preview, ...override }, fetcher: failing() }),
+    ).rejects.toBeInstanceOf(CatalogBuildError);
+  });
+
+  it("nao cobre credencial ausente ou parcial", async () => {
+    const withoutCredentials = {
+      ALLOW_STALE_CATALOG: "1",
+      VERCEL: "1",
+      VERCEL_ENV: "preview",
+    };
+
+    await expect(
+      buildCatalog({ env: withoutCredentials }),
+    ).rejects.toBeInstanceOf(CatalogBuildError);
+    await expect(
+      buildCatalog({ env: { ...withoutCredentials, GOOGLE_SHEETS_ID: "id" } }),
+    ).rejects.toBeInstanceOf(CatalogBuildError);
+  });
+
+  it("avisa no log que usou o mock", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const warning = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+
+    await run({ env: preview, fetcher: failing() });
+
+    expect(warning).toHaveBeenCalledWith(
+      expect.stringContaining("ALLOW_STALE_CATALOG=1, usando products.mock.ts"),
+    );
+    expect(info).toHaveBeenCalledWith(
+      "[catalogo] origem=mock produtos=30 ignorados=0 inativos=0",
+    );
+    info.mockRestore();
+    warning.mockRestore();
+  });
+});
