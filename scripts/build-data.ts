@@ -48,10 +48,13 @@ const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const outputPath = path.join(projectRoot, "src/data/products.generated.ts");
 
 function selectedSheetTab(env: NodeJS.ProcessEnv): string {
-  return (
-    env.CATALOG_SHEET_TAB ??
-    (env.VERCEL_ENV === "production" ? "produtos" : "produtos_preview")
-  );
+  // `CATALOG_SHEET_TAB=` num .env define a variável como "", que não cai no `??`.
+  const tab = env.CATALOG_SHEET_TAB?.trim();
+  if (tab) {
+    return tab;
+  }
+
+  return env.VERCEL_ENV === "production" ? "produtos" : "produtos_preview";
 }
 
 function isRows(value: unknown): value is unknown[][] {

@@ -76,6 +76,37 @@ describe("buildCatalog", () => {
   });
 
   it.each([
+    ["producao", { VERCEL_ENV: "production" }, "produtos"],
+    ["preview", { VERCEL_ENV: "preview" }, "produtos_preview"],
+    ["ambiente local", {}, "produtos_preview"],
+    [
+      "variavel vazia em producao",
+      { VERCEL_ENV: "production", CATALOG_SHEET_TAB: "" },
+      "produtos",
+    ],
+    [
+      "variavel so com espacos",
+      { CATALOG_SHEET_TAB: "  " },
+      "produtos_preview",
+    ],
+    [
+      "variavel explicita",
+      { VERCEL_ENV: "preview", CATALOG_SHEET_TAB: " produtos " },
+      "produtos",
+    ],
+  ])("le a aba certa em %s", async (_description, env, tab) => {
+    const fetcher = sheetsFetcher([EXPECTED_HEADERS, validRow()]);
+    await buildCatalog({
+      env: { GOOGLE_SHEETS_ID: "id", GOOGLE_SHEETS_API_KEY: "key", ...env },
+      fetcher,
+    });
+
+    expect(
+      fetcher.mock.calls.map(([url]) => decodeURIComponent(url.pathname)),
+    ).toContain(`/v4/spreadsheets/id/values/${tab}!A:J`);
+  });
+
+  it.each([
     ["HTTP nao-2xx", () => vi.fn(async () => response({}, 403))],
     [
       "corpo nao-JSON",
