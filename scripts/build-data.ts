@@ -39,6 +39,8 @@ export type BuildResult = {
   rejected: number;
   inactive: number;
   usedFallback: boolean;
+  /** Aba lida ou `"mock"`; sai no resumo do log. */
+  source: string;
   output: string;
 };
 
@@ -158,6 +160,7 @@ function fallbackResult(): BuildResult {
     rejected: 0,
     inactive: 0,
     usedFallback: true,
+    source: "mock",
     output: serializeProducts(FALLBACK_PRODUCTS),
   };
 }
@@ -197,12 +200,12 @@ export async function buildCatalog(
   ]);
 
   if (!validateHeader(productRows[0] ?? [])) {
-    throw new CatalogBuildError("cabecalho de produtos diverge do contrato");
+    throw new CatalogBuildError(`cabecalho de ${tab} diverge do contrato`);
   }
 
   const dataRows = productRowsOf(productRows);
   if (dataRows.length === 0) {
-    throw new CatalogBuildError("a aba de produtos nao contem linhas de dados");
+    throw new CatalogBuildError(`a aba ${tab} nao contem linhas de dados`);
   }
 
   if (!validateBrands(brandRows)) {
@@ -248,6 +251,7 @@ export async function buildCatalog(
     rejected,
     inactive,
     usedFallback: false,
+    source: tab,
     output: serializeProducts(products),
   };
 }
@@ -277,7 +281,7 @@ export async function run(options: BuildOptions = {}): Promise<BuildResult> {
   }
 
   console.info(
-    `[catalogo] produtos=${result.products.length} ignorados=${result.rejected}`,
+    `[catalogo] origem=${result.source} produtos=${result.products.length} ignorados=${result.rejected} inativos=${result.inactive}`,
   );
 
   return result;

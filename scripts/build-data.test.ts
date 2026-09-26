@@ -65,6 +65,7 @@ describe("buildCatalog", () => {
     const fetcher = sheetsFetcher([EXPECTED_HEADERS, validRow()]);
     const result = await buildCatalog({ env: credentials, fetcher });
 
+    expect(result).toMatchObject({ source: "produtos", usedFallback: false });
     expect(result.products).toHaveLength(1);
     expect(fetcher).toHaveBeenCalledTimes(2);
     for (const [url] of fetcher.mock.calls) {
@@ -141,7 +142,7 @@ describe("buildCatalog", () => {
         env: credentials,
         fetcher: sheetsFetcher([EXPECTED_HEADERS, ...blankRows(999)]),
       }),
-    ).rejects.toThrow("nao contem linhas de dados");
+    ).rejects.toThrow("a aba produtos nao contem linhas de dados");
   });
 
   it("trata o intervalo sem valores como aba vazia", async () => {
@@ -275,7 +276,9 @@ describe("buildCatalog", () => {
 
     await run({ forceFallback: true });
 
-    expect(info).toHaveBeenCalledWith("[catalogo] produtos=30 ignorados=0");
+    expect(info).toHaveBeenCalledWith(
+      "[catalogo] origem=mock produtos=30 ignorados=0 inativos=0",
+    );
     info.mockRestore();
     warning.mockRestore();
   });
