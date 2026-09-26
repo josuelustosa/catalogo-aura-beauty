@@ -65,6 +65,9 @@ describe("parseRow", () => {
       kind: "rejected",
       warnings: [{ line: 2, message: expect.stringContaining("preco") }],
     });
+    expect(parseRow(validRow({ 3: 0 }), 2, 0).kind).toBe("rejected");
+    expect(parseRow(validRow({ 3: -10 }), 2, 0).kind).toBe("rejected");
+    expect(parseRow(validRow({ 3: "" }), 2, 0).kind).toBe("rejected");
     expect(parseRow(validRow({ 2: "  " }), 3, 1).kind).toBe("rejected");
     expect(parseRow(validRow({ 0: "  " }), 4, 2).kind).toBe("rejected");
   });
