@@ -137,6 +137,8 @@ O CSV publicado / `gviz` fica documentado como plano B e não se constrói nada 
 
 ### 3.5 Validação — o que quebra o build e o que só avisa
 
+Antes de tudo, **linha em branco não é dado**: as caixas de seleção de `ativo`/`destaque` cobrem a aba inteira, então a API devolve toda linha vazia como `["", "", "", "", "", "", false, "", false]`. Uma linha sem nada nas colunas A–F é descartada antes de qualquer validação — senão a aba vazia passaria pelo detector abaixo e as 999 linhas de checkbox diluiriam o disjuntor.
+
 **Estrutural → `exit 1`, nada é escrito, o deploy falha:**
 
 - variáveis de ambiente ausentes;
@@ -145,23 +147,24 @@ O CSV publicado / `gviz` fica documentado como plano B e não se constrói nada 
 - **zero linhas de dados** num 200 — catálogo vazio é possível, planilha vazia quase nunca; é o detector de aba errada;
 - **`id` duplicado** — `CatalogGrid.tsx:12` usa `key={product.id}`; duplicata corrompe a reconciliação do React;
 - `_marcas!A:A` divergindo da lista do código;
-- **disjuntor: mais de 20% das linhas rejeitadas.** Muitas falhas pequenas são uma falha grande. É isso que pega "a coluna de preço virou texto", que sem o disjuntor derrubaria os 30 produtos e publicaria um catálogo vazio com build verde.
+- **disjuntor: mais de 20% das linhas avaliadas rejeitadas.** Muitas falhas pequenas são uma falha grande. É isso que pega "a coluna de preço virou texto", que sem o disjuntor derrubaria os 30 produtos e publicaria um catálogo vazio com build verde. O denominador são as linhas **avaliadas** (aceitas + rejeitadas): linhas inativas ficam de fora para não diluírem a conta.
 
 **Linha a linha → pula ou degrada, com aviso e o número da linha:**
 
-| Situação                             | Ação                                                                                               |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| `titulo` vazio                       | **Pula** — sem título não há card nem mensagem de WhatsApp                                         |
-| `preco` ausente, não numérico ou ≤ 0 | **Pula** — `formatPrice(NaN)` devolve `"R$ NaN"` e o card não tem guarda                           |
-| `preco_promocional` ≥ `preco`        | **Mantém, descarta a promoção** — riscar um valor menor que a "oferta" é pior que não ter promoção |
-| `marca` desconhecida                 | Canonicaliza se `normalize()` casar; senão **pula**                                                |
-| `ativo = FALSE`                      | **Pula em silêncio** — é ação intencional, não erro                                                |
-| `imagem_url` vazia                   | **Mantém sem foto** — o card já trata a ausência                                                   |
+| Situação                             | Ação                                                                                                                                 |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `titulo` vazio                       | **Pula** — sem título não há card nem mensagem de WhatsApp                                                                           |
+| `preco` ausente, não numérico ou ≤ 0 | **Pula** — `formatPrice(NaN)` devolve `"R$ NaN"` e o card não tem guarda                                                             |
+| `preco_promocional` ≥ `preco`        | **Mantém, descarta a promoção** — riscar um valor menor que a "oferta" é pior que não ter promoção                                   |
+| `marca` desconhecida                 | Canonicaliza se `normalize()` casar; senão **pula**                                                                                  |
+| `ativo` desmarcado **ou vazio**      | **Pula em silêncio** — apagar a caixa de seleção remove a caixa, e a linha continua parecendo desmarcada; só a caixa marcada publica |
+| `ativo` com valor estranho ("Sim")   | **Pula com aviso** — uma coluna colada errada aciona o disjuntor em vez de sumir com o catálogo                                      |
+| `imagem_url` vazia                   | **Mantém sem foto** — o card já trata a ausência                                                                                     |
 
-Avisos saem **agrupados no fim**, com uma linha final greppável — avisos espalhados são invisíveis num log de build da Vercel:
+Avisos saem **agrupados no fim**, com uma linha final greppável — avisos espalhados são invisíveis num log de build da Vercel. O `origem=` diz qual aba o ambiente leu (ou `mock`), que é como se confere a separação preview × produção:
 
 ```
-[catalogo] produtos=28 ignorados=2 imagens_ok=26 imagens_falha=2
+[catalogo] origem=produtos produtos=28 ignorados=2 inativos=3
 ```
 
 ### 3.6 Onde o dado cai
@@ -170,7 +173,7 @@ Avisos saem **agrupados no fim**, com uma linha final greppável — avisos espa
 
 **`.ts` e não `.json`**, por três motivos concretos: `resolveJsonModule` não está no `tsconfig.app.json` e teria de ser adicionado; um `.ts` é **typechecado de graça pelo `tsc -b` que já existe no build**, então saída malformada do gerador quebra o build sozinha; e JSON não representa `promoPrice?: number` ausente (não existe `undefined` em JSON).
 
-O arquivo é **gitignorado**, e o gerador roda tanto em `prebuild` quanto em `predev` — então um clone novo faz `npm install && npm run dev` e funciona. Sem credencial, o script gera o arquivo a partir de `products.mock.ts` com aviso; **com `process.env.VERCEL` definido, a ausência de credencial falha o build**. O dev roda offline, a Vercel nunca publica dado falso.
+O arquivo é **gitignorado**, e o gerador roda tanto em `prebuild` quanto em `predev` — então um clone novo faz `npm install && npm run dev` e funciona. Sem credencial, o script gera o arquivo a partir de `products.mock.ts` com aviso; **com `process.env.VERCEL` definido, a ausência de credencial falha o build**. O dev roda offline, e produção nunca publica dado falso — a única exceção é o preview com `ALLOW_STALE_CATALOG=1` (§7), que degrada para o mock com aviso para não travar PRs de UI.
 
 > Considerada e recusada por ora: versionar o arquivo gerado para ter um histórico de mudanças de preço no `git log`. O histórico só seria fiel se algo commitasse o resultado de cada build — o que exige uma Action agendada. Sem ela, o arquivo versionado envelhece parecendo autoritativo. Fica anotado como melhoria futura, junto da Action.
 
@@ -318,7 +321,9 @@ Preset **Vite** na Vercel (não Next), output `dist`. Nenhuma variável de dados
 | `VITE_WHATSAPP_NUMBER`  | Cliente      | número real                 | número de teste       |
 | `VITE_INSTAGRAM_URL`    | Cliente      | perfil real                 | perfil real           |
 
-Uma planilha só, duas abas — exatamente a ideia do briefing, sem duplicar cadastro. Na prática isso dá à consultora um espaço de ensaio: edita `produtos_preview`, abre a URL de preview, e só então copia para `produtos`.
+`ALLOW_STALE_CATALOG=1` vale **somente com `VERCEL_ENV === "preview"`** (comparação com `preview`, não com "diferente de production", para ambiente desconhecido falhar): erro de leitura ou de validação da planilha degrada para `products.mock.ts` com aviso alto no log, em vez de falhar o build — um PR de UI não trava porque alguém está no meio de uma edição em `produtos_preview`. Credencial ausente ou parcial continua falhando.
+
+Uma planilha só, duas abas — exatamente a ideia do briefing, sem duplicar cadastro. A aba `produtos_preview` é a base dos **previews de PR** (uso de dev). O ensaio da consultora — editar `produtos_preview` e conferir numa URL antes de copiar para `produtos` — ficou para o backlog: as URLs de preview da Vercel exigem login no plano atual e só são reconstruídas com push.
 
 **Preview não pode ser indexado.** `robots` é derivado de `VERCEL_ENV === "production" ? "index" : "noindex"`, e o `robots.txt` gerado emite `Disallow: /` fora de produção. É um esquecimento comum e caro: sem isso o Google indexa `catalogo-abc123.vercel.app` competindo com o domínio real.
 
@@ -493,11 +498,12 @@ Os números `#01`–`#37` são **referências internas deste plano** — o GitHu
 
 ### Backlog técnico (sem milestone)
 
-| Item                                                       | Nota                                                                                                                           |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Ligar `strict` no `tsconfig.app.json`                      | Hoje ausente. Vale ligar, mas provavelmente acende vários erros de uma vez — merece uma issue própria, não um efeito colateral |
-| Action agendada que rebuilda e abre issue em falha         | Transforma "a consultora descobre que o site não atualizou" em "o repositório avisa"                                           |
-| Versionar `products.generated.ts` como trilha de auditoria | Só faz sentido junto da Action acima (§3.6)                                                                                    |
+| Item                                                       | Nota                                                                                                                                                          |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ligar `strict` no `tsconfig.app.json`                      | Hoje ausente. Vale ligar, mas provavelmente acende vários erros de uma vez — merece uma issue própria, não um efeito colateral                                |
+| Action agendada que rebuilda e abre issue em falha         | Transforma "a consultora descobre que o site não atualizou" em "o repositório avisa"                                                                          |
+| Versionar `products.generated.ts` como trilha de auditoria | Só faz sentido junto da Action acima (§3.6)                                                                                                                   |
+| Ensaio da consultora com URL de preview                    | Exige um segundo Deploy Hook numa branch fixa e previews acessíveis sem login na Vercel (§7); um segundo item no menu da planilha dispararia o hook de ensaio |
 
 ---
 
@@ -516,17 +522,17 @@ Os números `#01`–`#37` são **referências internas deste plano** — o GitHu
 
 ## 13. Riscos
 
-| Risco                                                         | Mitigação                                                                                                                                                                                                                                           |
-| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Google Drive como origem das imagens** — o elo mais fraco   | Todo caminho é indocumentado, sensível ao ACL de cada arquivo e falha como HTTP 200 + HTML. Mitigação: checar `content-type`, tolerância via cache, disjuntor de 50% — e migrar para Cloudinary (§4.5)                                              |
-| **Uma pessoa não técnica agora quebra o build de produção**   | A separação estrutural × linha a linha (§3.5) é calibrada para só falhar no que corromperia o site; proteção de intervalo no Sheets; aba de ensaio; Action agendada como próximo passo                                                              |
-| **As duas passagens divergirem → mismatch → volta a ser CSR** | O React 19 se recupera renderizando no cliente, então **o site continua funcionando e o ganho de SEO some sem sintoma visível**. Mitigação: guarda `data-prerender-path` (#18), NBSP em `formatPrice`, logo fora do bundler, e o smoke test do #20  |
-| **Zero testes justo quando as peças móveis triplicam**        | O item 10 do antigo `PLANO_IA.md` já sinalizava. #10 entra em S1, antes do SSG                                                                                                                                                                      |
-| **`sharp` é a primeira dependência nativa do projeto**        | Acopla o build à plataforma e ao ABI do Node, e a chave de cache da Vercel inclui a versão do Node. Versão fixa, política de major do `dependency-management.md`, concorrência em 4. Acima de ~300 produtos, tirar a codificação do build de deploy |
-| Marca digitada errado sumindo do site em silêncio             | Três camadas de §3.3                                                                                                                                                                                                                                |
-| Dado só atualizar com redeploy                                | Trade-off aceito e explícito (§2.1); o Deploy Hook reduz o atrito a um clique                                                                                                                                                                       |
-| Planilha pública expondo mais do que devia                    | Nunca colocar custo, fornecedor ou dado pessoal nela (§2.3)                                                                                                                                                                                         |
-| Preview indexado gerando conteúdo duplicado                   | `noindex` + `Disallow: /` fora de produção (§7)                                                                                                                                                                                                     |
+| Risco                                                         | Mitigação                                                                                                                                                                                                                                                                     |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Google Drive como origem das imagens** — o elo mais fraco   | Todo caminho é indocumentado, sensível ao ACL de cada arquivo e falha como HTTP 200 + HTML. Mitigação: checar `content-type`, tolerância via cache, disjuntor de 50% — e migrar para Cloudinary (§4.5)                                                                        |
+| **Uma pessoa não técnica agora quebra o build de produção**   | A separação estrutural × linha a linha (§3.5) é calibrada para só falhar no que corromperia o site; proteção de intervalo no Sheets; conferência prévia no menu de publicação; se o build falhar, a Vercel mantém o deploy anterior no ar; Action agendada como próximo passo |
+| **As duas passagens divergirem → mismatch → volta a ser CSR** | O React 19 se recupera renderizando no cliente, então **o site continua funcionando e o ganho de SEO some sem sintoma visível**. Mitigação: guarda `data-prerender-path` (#18), NBSP em `formatPrice`, logo fora do bundler, e o smoke test do #20                            |
+| **Zero testes justo quando as peças móveis triplicam**        | O item 10 do antigo `PLANO_IA.md` já sinalizava. #10 entra em S1, antes do SSG                                                                                                                                                                                                |
+| **`sharp` é a primeira dependência nativa do projeto**        | Acopla o build à plataforma e ao ABI do Node, e a chave de cache da Vercel inclui a versão do Node. Versão fixa, política de major do `dependency-management.md`, concorrência em 4. Acima de ~300 produtos, tirar a codificação do build de deploy                           |
+| Marca digitada errado sumindo do site em silêncio             | Três camadas de §3.3                                                                                                                                                                                                                                                          |
+| Dado só atualizar com redeploy                                | Trade-off aceito e explícito (§2.1); o Deploy Hook reduz o atrito a um clique                                                                                                                                                                                                 |
+| Planilha pública expondo mais do que devia                    | Nunca colocar custo, fornecedor ou dado pessoal nela (§2.3)                                                                                                                                                                                                                   |
+| Preview indexado gerando conteúdo duplicado                   | `noindex` + `Disallow: /` fora de produção (§7)                                                                                                                                                                                                                               |
 
 ---
 

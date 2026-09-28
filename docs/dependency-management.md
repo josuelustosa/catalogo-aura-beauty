@@ -41,6 +41,7 @@ npm audit
 ### 4. Validar o projeto
 
 ```bash
+npm test
 npm run build
 npm run lint
 npm run format:check

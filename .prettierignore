@@ -4,3 +4,6 @@
 
 # Gerado e mantido pelo npm.
 package-lock.json
+
+# Gerado por scripts/build-data.ts.
+src/data/products.generated.ts

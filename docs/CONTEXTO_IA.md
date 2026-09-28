@@ -24,9 +24,12 @@ autenticação ou back-end próprio.
 > O código ainda diz "Consultora Acsa" em alguns pontos. A troca de identidade é
 > a primeira etapa do plano — ver `PLANO_DEFINITIVO_V1.md` §5.
 
-A fonte de dados prevista é uma **Planilha Google**, que devolve uma lista plana
-com os produtos de todas as marcas. Hoje esse retorno é simulado por um mock, e
-a leitura real acontecerá **em tempo de build**, não em runtime — ver Histórico.
+A fonte de dados é uma **Planilha Google**, que devolve uma lista plana com os
+produtos de todas as marcas. `scripts/build-data.ts` a lê **em tempo de build**
+(não em runtime — ver Histórico) e gera `src/data/products.generated.ts`; sem
+credencial, gera a partir de `products.mock.ts`. A publicação é disparada da
+própria planilha por um Deploy Hook (`apps-script/Code.gs`), e o guia da
+consultora fica em `consultora/GUIA_DA_PLANILHA.md`.
 
 ## Stack
 
@@ -38,40 +41,53 @@ a leitura real acontecerá **em tempo de build**, não em runtime — ver Histó
 | React Router | 7.18.1 | import de `react-router`, não `react-router-dom` |
 | Tailwind CSS | 4.3.3  | via `@tailwindcss/vite`, sem `tailwind.config`   |
 | Prettier     | 3.6.2  | opções default, sem `.prettierrc`                |
+| Vitest       | 4.1.10 | imports explícitos de `"vitest"`, sem globals    |
 
 Dependências usam **versão exata**, sem `^` ou `~`. Ver
 [dependency-management.md](./dependency-management.md).
 
-Scripts: `npm run dev`, `npm run build` (`tsc -b && vite build`),
-`npm run lint`, `npm run format` e `npm run format:check`.
+Scripts: `npm run dev`, `npm run build` (`tsc -b && vite build`), `npm test`,
+`npm run lint`, `npm run format` e `npm run format:check`. `predev`, `prebuild`
+e `pretest` rodam `scripts/build-data.ts` (o `pretest` força o fallback do mock,
+para os testes do serviço serem determinísticos).
 
 ---
 
 ## Estrutura
 
 ```
+apps-script/
+└── Code.gs                    # menu de publicação da planilha (Deploy Hook)
+consultora/
+└── GUIA_DA_PLANILHA.md        # guia não técnico de uso da planilha
+scripts/
+├── build-data.ts              # lê a planilha no build e escreve o gerado
+└── catalog-data.ts            # parsing e validação puros, sem I/O
 src/
-├── components/          # UI compartilhada entre páginas
-│   ├── Container.tsx    # larguras "default" (80rem) e "narrow" (48rem)
-│   ├── EmptyState.tsx   # mensagem + saída para qualquer estado vazio
+├── components/                # UI compartilhada entre páginas
+│   ├── Container.tsx          # larguras "default" (80rem) e "narrow" (48rem)
+│   ├── EmptyState.tsx         # mensagem + saída para qualquer estado vazio
 │   └── Header/
 ├── data/
-│   └── products.mock.ts # retorno bruto simulado da planilha
+│   ├── products.generated.ts  # gerado no build; gitignorado, não edite
+│   └── products.mock.ts       # fixture de fallback e de teste
 ├── hooks/
 │   └── use-debounced-value.ts
 ├── mocks/
-│   └── nav-item.mock.ts # itens do menu + helpers de catálogo
+│   └── nav-item.mock.ts       # itens do menu + helpers de catálogo
 ├── pages/
 │   ├── Home.tsx
-│   ├── CatalogHome.tsx  # /catalogo sem slug: seletor de catálogos
-│   ├── NotFound.tsx     # rota "*"
-│   └── Catalog/         # página + componentes exclusivos dela
+│   ├── CatalogHome.tsx        # /catalogo sem slug: seletor de catálogos
+│   ├── NotFound.tsx           # rota "*"
+│   └── Catalog/               # página + componentes exclusivos dela
 ├── router/
 ├── services/
 │   └── catalog.service.ts
 ├── types/
 └── utils/
 ```
+
+Os testes vivem ao lado do código (`*.test.ts` em `scripts/` e `src/`).
 
 Convenção de pastas: componente usado por mais de uma página vai em
 `components/`; componente exclusivo de uma página vive na pasta daquela página
@@ -82,7 +98,13 @@ Convenção de pastas: componente usado por mais de uma página vai em
 
 ## Fluxo de dados do catálogo
 
-Este é o eixo central do projeto. Uma rota dinâmica atende todos os catálogos:
+Este é o eixo central do projeto. No build, a planilha vira um módulo estático:
+
+```
+Planilha ──(build)──► scripts/build-data.ts ──► src/data/products.generated.ts
+```
+
+Em runtime, uma rota dinâmica atende todos os catálogos, com o serviço síncrono:
 
 ```
 /catalogo/:slug
@@ -96,7 +118,7 @@ services/catalog.service.ts    getCatalogBySlug(slug)
       ├─ getCatalogNavItemBySlug(slug)   → item do menu (mocks/nav-item.mock)
       │      └─ item.brands              → ["Boticário", "Eudora", "OUI"]
       │
-      └─ getProductsByBrands(brands)     → filtra data/products.mock
+      └─ getProductsByBrands(brands)     → filtra data/products.generated
              │
              ▼
         CatalogView { slug, title, brands, products }
@@ -115,12 +137,14 @@ Pontos que precisam ser preservados em qualquer alteração:
   é adicionar um item ao mock com `kind: "catalog"`, `slug` e `brands` — a rota,
   o link e a filtragem passam a funcionar sem tocar em roteador ou serviço.
 - **A planilha devolve tudo, o recorte é da camada de serviço.**
-  `data/products.mock.ts` não sabe de catálogos; nenhum arquivo por catálogo
-  deve voltar a existir (essa abordagem foi removida — ver Histórico).
-- **Comparação de texto é normalizada.** `normalize()` aplica trim, lowercase e
-  remoção de acentos, porque a planilha é editada à mão e `"boticário "` e
-  `"Boticario"` precisam casar. Toda comparação de marca deve passar por ela, e
-  a busca também usa — o usuário digita sem acento.
+  `data/products.generated.ts` não sabe de catálogos; nenhum arquivo por
+  catálogo deve voltar a existir (essa abordagem foi removida — ver Histórico).
+- **Comparação de texto é normalizada.** `normalizeCatalogText()`
+  (`utils/normalize-catalog-text.ts`) aplica trim, lowercase e remoção de
+  acentos, porque a planilha é editada à mão e `"boticário "` e `"Boticario"`
+  precisam casar. Toda comparação de marca deve passar por ela — o build a usa
+  para canonicalizar a marca digitada, e a busca também, porque o usuário
+  digita sem acento.
 - **`getCatalogBySlug` devolve `null` para slug desconhecido.** A página trata
   esse caso, o de catálogo sem produtos e o de busca sem resultado com
   mensagens distintas — todos via `<EmptyState>`, ver Design system.
@@ -230,10 +254,10 @@ Implementado e verificado (`tsc -b` e `vite build` passam):
   `<EmptyState>`.
 
 O que está aberto — com critérios de aceite — está em
-[PLANO_DEFINITIVO_V1.md](./PLANO_DEFINITIVO_V1.md). Em resumo: identidade visual
-ainda como "Consultora Acsa", troca do mock pela Planilha Google, imagens dos
+[PLANO_DEFINITIVO_V1.md](./PLANO_DEFINITIVO_V1.md). Em resumo: imagens dos
 produtos, ausência de SSG e de metadados por rota, `Home.tsx` ainda placeholder,
-sem footer nem botão flutuante, e ausência de testes.
+sem footer nem botão flutuante. A identidade Aura Beauty (S0) e a Planilha
+Google com testes (S1) já foram entregues.
 
 `groupByBrand` continua sem consumidor: a listagem seccionada por marca foi
 movida para fora do escopo do V1 por falta de decisão de UX — ela convive mal
@@ -281,9 +305,9 @@ agrupamento que já existe no menu e obrigaria a criar um arquivo a cada catálo
 novo. Não reintroduza esse modelo.
 
 **Mantido — mocks separados por responsabilidade.** `mocks/nav-item.mock.ts`
-descreve navegação (estrutura do site); `data/products.mock.ts` simula a origem
-externa de dados. Quando a planilha entrar, o segundo deixa de ser a origem e
-passa a ser o fixture de fallback para build sem credencial e para os testes.
+descreve navegação (estrutura do site); `data/products.mock.ts` é o fixture de
+fallback para build sem credencial e para os testes — desde a entrada da
+planilha, ele não é mais a origem dos dados.
 
 **Decidido — a planilha é lida em tempo de build, não em runtime.** O plano
 anterior previa que a leitura real traria assincronismo, e que `getCatalogBySlug`
