@@ -332,6 +332,13 @@ site de 8 rotas não tem. **Enquanto houver SSG, não use `route.lazy` nem code
 splitting** — `lazy` força `initialized = false` no cliente, o que renderiza o
 fallback do `<Suspense>` e causa mismatch de hidratação.
 
+**Temporário — fallback de SPA na Vercel.** Enquanto não houver SSG, o
+`vercel.json` reescreve para `index.html` toda rota fora de `/assets/`; sem
+isso, F5 em `/catalogo/...` cai no 404 da Vercel e o `NotFound` do app nunca
+aparece. `/assets/` fica de fora para um arquivo com hash antigo dar 404 real,
+e não HTML no lugar de JS. A rewrite sai com o prerender (`PLANO_DEFINITIVO_V1.md`
+§7), porque aí ela transformaria todo 404 em _soft 404_.
+
 **Decidido — imagens otimizadas no build, nunca servidas da origem remota.** A
 planilha guarda a URL (Cloudinary como destino, Google Drive tolerado); o build
 baixa, recorta em quadrado e emite AVIF/WebP locais em `public/img/`. Por isso o
