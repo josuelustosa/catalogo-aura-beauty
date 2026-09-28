@@ -327,7 +327,9 @@ Uma planilha só, duas abas — exatamente a ideia do briefing, sem duplicar cad
 
 **Preview não pode ser indexado.** `robots` é derivado de `VERCEL_ENV === "production" ? "index" : "noindex"`, e o `robots.txt` gerado emite `Disallow: /` fora de produção. É um esquecimento comum e caro: sem isso o Google indexa `catalogo-abc123.vercel.app` competindo com o domínio real.
 
-**Sem rewrite de SPA.** Com cada rota virando um HTML de verdade, o layout de saída fica:
+**Até o S3, com rewrite de SPA.** Enquanto o site é SPA, o `vercel.json` reescreve para `index.html` toda rota fora de `/assets/`: sem isso, F5 ou link direto em `/catalogo/...` cai no 404 padrão da Vercel. O custo aceito é o _soft 404_ (rota inexistente responde 200 com o `NotFound` do app), que sai com o prerender (#22) e o `vercel.json` final (#36).
+
+**Sem rewrite de SPA depois do S3.** Com cada rota virando um HTML de verdade, o layout de saída fica:
 
 ```
 dist/index.html                    → /
