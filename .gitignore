@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 src/data/products.generated.ts
+consultora/*.pdf
 *.local
 
 # Variaveis de ambiente
