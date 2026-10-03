@@ -363,6 +363,91 @@ describe("imagens no catalogo", () => {
   });
 });
 
+describe("disjuntor de imagens", () => {
+  const dirs: string[] = [];
+  afterEach(async () => {
+    await Promise.all(
+      dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })),
+    );
+  });
+  const cacheDir = async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "catalogo-"));
+    dirs.push(dir);
+    return dir;
+  };
+  const response = (status: number, contentType: string | null) =>
+    vi.fn<ImageFetcher>(async () => ({
+      status,
+      headers: {
+        get: (name) => (name === "content-type" ? contentType : null),
+      },
+      arrayBuffer: async () => new ArrayBuffer(0),
+    }));
+  const driveRows = () => [
+    EXPECTED_HEADERS,
+    ...["BOT-001", "BOT-002", "BOT-003"].map((id) =>
+      validRow(id).map((value, column) =>
+        column === 5 ? `https://drive.google.com/file/d/${id}/view` : value,
+      ),
+    ),
+  ];
+
+  it("falha o build fora do preview e vira aviso com ALLOW_STALE_CATALOG=1", async () => {
+    await expect(
+      buildCatalog({
+        env: credentials,
+        fetcher: sheetsFetcher(driveRows()),
+        imageFetcher: response(200, "text/html"),
+        imagePaths: { cacheDir: await cacheDir() },
+      }),
+    ).rejects.toThrow("disjuntor de imagens acionado: 3/3");
+
+    const degraded = await buildCatalog({
+      env: {
+        ...credentials,
+        ALLOW_STALE_CATALOG: "1",
+        VERCEL: "1",
+        VERCEL_ENV: "preview",
+      },
+      fetcher: sheetsFetcher(driveRows()),
+      imageFetcher: response(200, "text/html"),
+      imagePaths: { cacheDir: await cacheDir() },
+    });
+    expect(degraded.usedFallback).toBe(false);
+    expect(degraded.products).toHaveLength(3);
+    expect(degraded.products.map((product) => product.imageKey)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(degraded.staleImagesReason).toContain("permissao da pasta do Drive");
+    expect(degraded.warnings).toHaveLength(3);
+  });
+
+  it("lista os ids sem foto no Cloudinary", async () => {
+    const result = await buildCatalog({
+      env: { ...credentials, CLOUDINARY_CLOUD_NAME: "cloud" },
+      fetcher: sheetsFetcher([
+        EXPECTED_HEADERS,
+        validRow("BOT-002"),
+        validRow("BOT-001"),
+      ]),
+      imageFetcher: response(404, "application/json"),
+      imagePaths: { cacheDir: await cacheDir() },
+    });
+
+    expect(result.missingImageIds).toEqual(["BOT-001", "BOT-002"]);
+    expect(result.imageCounts).toEqual({
+      ok: 0,
+      cache: 0,
+      failed: 0,
+      missing: 2,
+    });
+    expect(result.warnings).toEqual([]);
+    expect(result.staleImagesReason).toBeUndefined();
+  });
+});
+
 describe("ALLOW_STALE_CATALOG", () => {
   const preview = {
     ...credentials,

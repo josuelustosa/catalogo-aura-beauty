@@ -162,3 +162,34 @@ export function serializeImages(images: CatalogImages): string {
     "",
   ].join("\n");
 }
+
+export const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
+
+export type ImageCounts = {
+  ok: number;
+  /** Download falhou, mas o original em cache segurou a foto. */
+  cache: number;
+  failed: number;
+  /** Sem origem ou foto ainda não subiu: não é erro. */
+  missing: number;
+};
+
+/** Mais da metade e pelo menos 3: um link ruim sozinho não derruba o deploy. */
+export function shouldTripBreaker({ ok, cache, failed }: ImageCounts): boolean {
+  const broken = cache + failed;
+  return broken >= 3 && broken > ok;
+}
+
+export function breakerMessage(
+  counts: ImageCounts,
+  failedHosts: readonly ImageHost[],
+): string {
+  const broken = counts.cache + counts.failed;
+  const drive = failedHosts.filter((host) => host === "drive").length;
+  const cause =
+    drive * 2 > failedHosts.length
+      ? "permissao da pasta do Drive (compartilhe como 'qualquer pessoa com o link')"
+      : "fotos removidas ou origem fora do ar";
+
+  return `disjuntor de imagens acionado: ${broken}/${broken + counts.ok} falharam; causa provavel: ${cause}`;
+}

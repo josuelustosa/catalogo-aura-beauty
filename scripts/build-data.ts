@@ -49,6 +49,8 @@ export type BuildResult = {
   products: Product[];
   images: CatalogImages;
   imageCounts: ImageCounts;
+  /** Ids sem foto no Cloudinary; sai numa linha só do log. */
+  missingImageIds: string[];
   warnings: CatalogWarning[];
   rejected: number;
   inactive: number;
@@ -57,6 +59,8 @@ export type BuildResult = {
   source: string;
   /** Erro que o `ALLOW_STALE_CATALOG` engoliu num preview. */
   staleReason?: string;
+  /** Disjuntor de imagens que o `ALLOW_STALE_CATALOG` rebaixou a aviso. */
+  staleImagesReason?: string;
   output: string;
   imagesOutput: string;
   /** Arquivos a publicar em public/img; vazio no fallback. */
@@ -190,6 +194,7 @@ function fallbackResult(): BuildResult {
     products: FALLBACK_PRODUCTS,
     images: {},
     imageCounts: { ok: 0, cache: 0, failed: 0, missing: 0 },
+    missingImageIds: [],
     warnings: [],
     rejected: 0,
     inactive: 0,
@@ -290,6 +295,15 @@ async function attachImages(
     },
   );
 
+  let staleImagesReason: string | undefined;
+  if (result.breaker) {
+    if (!allowsStaleCatalog(env)) {
+      throw new CatalogBuildError(result.breaker);
+    }
+
+    staleImagesReason = result.breaker;
+  }
+
   const products = sheet.accepted.map(({ product }) =>
     result.images[product.id] ? { ...product, imageKey: product.id } : product,
   );
@@ -298,11 +312,13 @@ async function attachImages(
     products,
     images: result.images,
     imageCounts: result.counts,
+    missingImageIds: result.missingIds,
     warnings: [...sheet.warnings, ...result.warnings],
     rejected: sheet.rejected,
     inactive: sheet.inactive,
     usedFallback: false,
     source: sheet.source,
+    staleImagesReason,
     output: serializeProducts(products),
     imagesOutput: serializeImages(result.images),
     imageFiles: result.files,
@@ -379,11 +395,28 @@ export async function run(options: BuildOptions = {}): Promise<BuildResult> {
     );
   }
 
+  if (result.staleImagesReason) {
+    console.warn(
+      `[catalogo] aviso=${result.staleImagesReason}; ALLOW_STALE_CATALOG=1, publicando sem as fotos que falharam`,
+    );
+  }
+
   for (const warning of result.warnings) {
     console.warn(`[catalogo] linha=${warning.line} aviso=${warning.message}`);
   }
 
   const { ok, cache, failed, missing } = result.imageCounts;
+  if (result.missingImageIds.length > 0) {
+    const ids = result.missingImageIds.join(", ");
+    if (ok + cache === 0) {
+      console.warn(
+        `[catalogo] aviso=nenhuma foto encontrada no Cloudinary; confira CLOUDINARY_CLOUD_NAME e os nomes dos arquivos. Sem foto: ${ids}`,
+      );
+    } else {
+      console.info(`[catalogo] sem foto no Cloudinary: ${ids}`);
+    }
+  }
+
   console.info(
     `[catalogo] origem=${result.source} produtos=${result.products.length} ignorados=${result.rejected} inativos=${result.inactive} imagens_ok=${ok} imagens_cache=${cache} imagens_falha=${failed} imagens_sem_foto=${missing}`,
   );

@@ -11,15 +11,23 @@ import { IMAGE_FORMATS, imageFileName } from "../src/utils/catalog-image.ts";
 import { writeFileAtomic } from "./atomic-write.ts";
 import type { CatalogWarning } from "./catalog-data.ts";
 import {
+  breakerMessage,
   effectiveWidths,
   IMAGE_QUALITY,
   IMAGE_WIDTHS,
   imageSlug,
   imageSourceOf,
   isImageContentType,
+  MAX_IMAGE_BYTES,
   parseContentType,
   PIPELINE_VERSION,
+  shouldTripBreaker,
+  type ImageCounts,
+  type ImageHost,
+  type ImageSource,
 } from "./catalog-images.ts";
+
+export type { ImageCounts } from "./catalog-images.ts";
 
 export type ImageResponse = {
   status: number;
@@ -44,15 +52,6 @@ export type ImageEntry = {
   imageUrl?: string;
 };
 
-export type ImageCounts = {
-  ok: number;
-  /** Download falhou, mas o original em cache segurou a foto. */
-  cache: number;
-  failed: number;
-  /** Sem origem ou foto ainda não subiu: não é erro. */
-  missing: number;
-};
-
 export type ImagesOptions = {
   cloudName?: string;
   fetcher?: ImageFetcher;
@@ -60,15 +59,22 @@ export type ImagesOptions = {
   widths?: readonly number[];
   concurrency?: number;
   timeoutMs?: number;
+  retryDelayMs?: number;
 };
 
 export type ImagesResult = {
   images: CatalogImages;
   warnings: CatalogWarning[];
   counts: ImageCounts;
+  /** Ids cuja URL derivada deu 404: a foto ainda não subiu. */
+  missingIds: string[];
+  /** Mensagem do disjuntor, quando acionado; quem falha o build é o chamador. */
+  breaker?: string;
   /** Nome publicado → arquivo no cache; `syncOutput` leva para public/img. */
   files: ReadonlyMap<string, string>;
 };
+
+type Source = Extract<ImageSource, { kind: "source" }>;
 
 type Original = {
   bytes: Buffer;
@@ -88,7 +94,8 @@ type Sidecar = {
 
 type Download =
   | { kind: "ok"; original: Original }
-  | { kind: "failed"; reason: string };
+  | { kind: "missing" }
+  | { kind: "failed"; reason: string; cached?: Original };
 
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 
@@ -119,6 +126,14 @@ async function hasContent(file: string): Promise<boolean> {
     return (await stat(file)).size > 0;
   } catch {
     return false;
+  }
+}
+
+async function listDir(dir: string): Promise<string[]> {
+  try {
+    return await readdir(dir);
+  } catch {
+    return [];
   }
 }
 
@@ -189,15 +204,71 @@ class OriginalsCache {
     await writeFileAtomic(`${this.base(url)}.bin`, original.bytes);
     await writeFileAtomic(`${this.base(url)}.json`, JSON.stringify(sidecar));
   }
+
+  /** Mantém só as URLs referenciadas neste build, mesmo as que falharam. */
+  async prune(urls: ReadonlySet<string>): Promise<void> {
+    const keep = new Set([...urls].map((url) => sha256(url)));
+    for (const name of await listDir(this.dir)) {
+      if (!keep.has(path.parse(name).name)) {
+        await rm(path.join(this.dir, name), { force: true });
+      }
+    }
+  }
+}
+
+async function fetchWithRetry(
+  url: string,
+  headers: Record<string, string>,
+  fetcher: ImageFetcher,
+  timeoutMs: number,
+  retryDelayMs: number,
+): Promise<ImageResponse | { failure: string }> {
+  let failure = "";
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+    }
+
+    try {
+      const response = await fetcher(url, {
+        headers,
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      // Só repete o que pode ser transitório: HTML-200 e 4xx não mudam.
+      if (response.status !== 429 && response.status < 500) {
+        return response;
+      }
+
+      failure = `HTTP ${response.status}`;
+    } catch (error) {
+      failure = `rede: ${errorMessage(error)}`;
+    }
+  }
+
+  return { failure };
 }
 
 async function download(
-  url: string,
+  source: Source,
   cache: OriginalsCache,
   fetcher: ImageFetcher,
   timeoutMs: number,
+  retryDelayMs: number,
 ): Promise<Download> {
+  const { url } = source;
   const cached = await cache.read(url);
+  const fallback: Original | undefined = cached && {
+    bytes: cached.bytes,
+    sha256: cached.sidecar.sha256,
+    contentType: cached.sidecar.contentType,
+  };
+  const failed = (reason: string): Download => ({
+    kind: "failed",
+    reason,
+    cached: fallback,
+  });
+
   const headers: Record<string, string> = {};
   if (cached?.sidecar.etag) {
     headers["If-None-Match"] = cached.sidecar.etag;
@@ -206,49 +277,55 @@ async function download(
     headers["If-Modified-Since"] = cached.sidecar.lastModified;
   }
 
-  let response: ImageResponse;
-  try {
-    response = await fetcher(url, {
-      headers,
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-  } catch (error) {
-    return { kind: "failed", reason: `rede: ${errorMessage(error)}` };
+  const response = await fetchWithRetry(
+    url,
+    headers,
+    fetcher,
+    timeoutMs,
+    retryDelayMs,
+  );
+  if ("failure" in response) {
+    return failed(response.failure);
   }
 
-  if (response.status === 304 && cached) {
-    return {
-      kind: "ok",
-      original: {
-        bytes: cached.bytes,
-        sha256: cached.sidecar.sha256,
-        contentType: cached.sidecar.contentType,
-      },
-    };
+  if (response.status === 304 && fallback) {
+    return { kind: "ok", original: fallback };
+  }
+
+  // 404 numa URL derivada só é problema se a foto já existiu.
+  if (response.status === 404 && source.origin === "derived") {
+    return fallback
+      ? failed("HTTP 404 (foto apagada ou renomeada)")
+      : { kind: "missing" };
   }
 
   if (response.status < 200 || response.status >= 300) {
-    return { kind: "failed", reason: `HTTP ${response.status}` };
+    return failed(`HTTP ${response.status}`);
   }
 
   // O Drive responde "sem permissão" com 200 e HTML; o status não basta.
   const contentType = response.headers.get("content-type");
   if (!isImageContentType(contentType)) {
-    return {
-      kind: "failed",
-      reason: `content-type ${parseContentType(contentType) || "ausente"}`,
-    };
+    return failed(`content-type ${parseContentType(contentType) || "ausente"}`);
+  }
+
+  const declaredLength = Number(response.headers.get("content-length"));
+  if (declaredLength > MAX_IMAGE_BYTES) {
+    return failed("arquivo maior que 25 MB");
   }
 
   let bytes: Buffer;
   try {
     bytes = Buffer.from(await response.arrayBuffer());
   } catch (error) {
-    return { kind: "failed", reason: `rede: ${errorMessage(error)}` };
+    return failed(`rede: ${errorMessage(error)}`);
   }
 
   if (bytes.length === 0) {
-    return { kind: "failed", reason: "corpo vazio" };
+    return failed("corpo vazio");
+  }
+  if (bytes.length > MAX_IMAGE_BYTES) {
+    return failed("arquivo maior que 25 MB");
   }
 
   const original: Original = {
@@ -329,6 +406,17 @@ async function encode(
   return { image, files };
 }
 
+async function pruneEncoded(
+  encodedDir: string,
+  keep: ReadonlyMap<string, string>,
+): Promise<void> {
+  for (const name of await listDir(encodedDir)) {
+    if (!keep.has(name)) {
+      await rm(path.join(encodedDir, name), { force: true });
+    }
+  }
+}
+
 export async function buildImages(
   entries: readonly ImageEntry[],
   options: ImagesOptions = {},
@@ -337,6 +425,7 @@ export async function buildImages(
   const fetcher = options.fetcher ?? defaultFetcher;
   const widths = options.widths ?? IMAGE_WIDTHS;
   const timeoutMs = options.timeoutMs ?? 30_000;
+  const retryDelayMs = options.retryDelayMs ?? 1_000;
   const cache = new OriginalsCache(path.join(cacheDir, "originals"));
   const encodedDir = path.join(cacheDir, "encoded");
 
@@ -347,25 +436,33 @@ export async function buildImages(
   const images: Record<string, CatalogImage> = {};
   const warnings: CatalogWarning[] = [];
   const counts: ImageCounts = { ok: 0, cache: 0, failed: 0, missing: 0 };
+  const missingIds: string[] = [];
+  const failedHosts: ImageHost[] = [];
   const files = new Map<string, string>();
+  const referenced = new Set<string>();
   const downloads = new Map<string, Promise<Download>>();
 
-  const downloadOnce = (url: string): Promise<Download> => {
-    let pending = downloads.get(url);
+  const downloadOnce = (source: Source): Promise<Download> => {
+    let pending = downloads.get(source.url);
     if (!pending) {
-      pending = download(url, cache, fetcher, timeoutMs);
-      downloads.set(url, pending);
+      pending = download(source, cache, fetcher, timeoutMs, retryDelayMs);
+      downloads.set(source.url, pending);
     }
 
     return pending;
   };
 
-  const fail = (entry: ImageEntry, reason: string): void => {
-    counts.failed += 1;
+  const warn = (entry: ImageEntry, message: string): void => {
     warnings.push({
       line: entry.line,
-      message: `imagem ignorada: ${reason} (id=${entry.id}, titulo=${entry.title})`,
+      message: `${message} (id=${entry.id}, titulo=${entry.title})`,
     });
+  };
+
+  const fail = (entry: ImageEntry, host: ImageHost, reason: string): void => {
+    counts.failed += 1;
+    failedHosts.push(host);
+    warn(entry, `imagem ignorada: ${reason}`);
   };
 
   await mapConcurrent(entries, options.concurrency ?? 4, async (entry) => {
@@ -376,19 +473,31 @@ export async function buildImages(
     }
 
     if (source.kind === "invalid") {
-      fail(entry, source.reason);
+      fail(entry, "other", source.reason);
       return;
     }
 
-    const downloaded = await downloadOnce(source.url);
-    if (downloaded.kind === "failed") {
-      fail(entry, downloaded.reason);
+    referenced.add(source.url);
+    const downloaded = await downloadOnce(source);
+    if (downloaded.kind === "missing") {
+      counts.missing += 1;
+      missingIds.push(entry.id);
+      return;
+    }
+
+    let original: Original;
+    if (downloaded.kind === "ok") {
+      original = downloaded.original;
+    } else if (downloaded.cached) {
+      original = downloaded.cached;
+    } else {
+      fail(entry, source.host, downloaded.reason);
       return;
     }
 
     try {
       const encoded = await encode(
-        downloaded.original,
+        original,
         imageSlug(entry.id),
         widths,
         encodedDir,
@@ -397,15 +506,35 @@ export async function buildImages(
       for (const [name, file] of encoded.files) {
         files.set(name, file);
       }
-      counts.ok += 1;
+
+      if (downloaded.kind === "ok") {
+        counts.ok += 1;
+      } else {
+        counts.cache += 1;
+        failedHosts.push(source.host);
+        warn(
+          entry,
+          `imagem servida do cache: ${downloaded.reason}; confira a origem`,
+        );
+      }
     } catch (error) {
-      fail(entry, `imagem invalida: ${errorMessage(error)}`);
+      fail(entry, source.host, `imagem invalida: ${errorMessage(error)}`);
     }
   });
 
   warnings.sort((left, right) => left.line - right.line);
+  missingIds.sort();
 
-  return { images, warnings, counts, files };
+  const breaker = shouldTripBreaker(counts)
+    ? breakerMessage(counts, failedHosts)
+    : undefined;
+
+  if (!breaker) {
+    await cache.prune(referenced);
+    await pruneEncoded(encodedDir, files);
+  }
+
+  return { images, warnings, counts, missingIds, breaker, files };
 }
 
 /** Copia o conjunto novo e apaga o resto, nessa ordem: nunca há janela vazia. */
