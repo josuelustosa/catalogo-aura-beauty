@@ -27,9 +27,12 @@ autenticação ou back-end próprio.
 A fonte de dados é uma **Planilha Google**, que devolve uma lista plana com os
 produtos de todas as marcas. `scripts/build-data.ts` a lê **em tempo de build**
 (não em runtime — ver Histórico) e gera `src/data/products.generated.ts`; sem
-credencial, gera a partir de `products.mock.ts`. A publicação é disparada da
-própria planilha por um Deploy Hook (`apps-script/Code.gs`), e o guia da
-consultora fica em `consultora/GUIA_DA_PLANILHA.md`.
+credencial, gera a partir de `products.mock.ts`. As fotos vêm do Cloudinary
+(ou de um link do Drive na coluna `imagem_url`): `scripts/build-images.ts` as
+baixa, recorta em quadrado e emite AVIF/WebP em `public/img/`, com o manifesto
+`src/data/images.generated.ts`. A publicação é disparada da própria planilha
+por um Deploy Hook (`apps-script/Code.gs`), e o guia da consultora fica em
+`consultora/GUIA_DA_PLANILHA.md`.
 
 ## Stack
 
@@ -42,14 +45,17 @@ consultora fica em `consultora/GUIA_DA_PLANILHA.md`.
 | Tailwind CSS | 4.3.3  | via `@tailwindcss/vite`, sem `tailwind.config`   |
 | Prettier     | 3.6.2  | opções default, sem `.prettierrc`                |
 | Vitest       | 4.1.10 | imports explícitos de `"vitest"`, sem globals    |
+| sharp        | 0.35.5 | só no build; binário pré-compilado com AVIF      |
 
 Dependências usam **versão exata**, sem `^` ou `~`. Ver
 [dependency-management.md](./dependency-management.md).
 
 Scripts: `npm run dev`, `npm run build` (`tsc -b && vite build`), `npm test`,
 `npm run lint`, `npm run format` e `npm run format:check`. `predev`, `prebuild`
-e `pretest` rodam `scripts/build-data.ts` (o `pretest` força o fallback do mock,
-para os testes do serviço serem determinísticos).
+e `pretest` rodam `scripts/build-data.ts`, que também roda o pipeline de
+imagens (o `pretest` força o fallback do mock, sem imagens, para os testes do
+serviço serem determinísticos). O cache das imagens fica em
+`node_modules/.cache/catalogo-imagens/`; apagar a pasta só força um build frio.
 
 ---
 
@@ -60,15 +66,22 @@ apps-script/
 └── Code.gs                    # menu de publicação da planilha (Deploy Hook)
 consultora/
 └── GUIA_DA_PLANILHA.md        # guia não técnico de uso da planilha
+public/
+└── img/                       # fotos emitidas pelo build; gitignorado
 scripts/
-├── build-data.ts              # lê a planilha no build e escreve o gerado
-└── catalog-data.ts            # parsing e validação puros, sem I/O
+├── atomic-write.ts            # grava por temporário + rename
+├── build-data.ts              # orquestra: planilha → imagens → gerados
+├── build-images.ts            # download, cache, sharp e emissão em public/img
+├── catalog-data.ts            # parsing e validação da planilha; puro
+└── catalog-images.ts          # origens, larguras e disjuntor de imagens; puro
 src/
 ├── components/                # UI compartilhada entre páginas
 │   ├── Container.tsx          # larguras "default" (80rem) e "narrow" (48rem)
 │   ├── EmptyState.tsx         # mensagem + saída para qualquer estado vazio
-│   └── Header/
+│   ├── Header/
+│   └── Picture.tsx            # <picture> AVIF/WebP lendo o manifesto
 ├── data/
+│   ├── images.generated.ts    # manifesto de fotos; gerado, gitignorado
 │   ├── products.generated.ts  # gerado no build; gitignorado, não edite
 │   └── products.mock.ts       # fixture de fallback e de teste
 ├── hooks/
@@ -102,6 +115,9 @@ Este é o eixo central do projeto. No build, a planilha vira um módulo estátic
 
 ```
 Planilha ──(build)──► scripts/build-data.ts ──► src/data/products.generated.ts
+                              │
+   imagem_url ou id ──────────┴─► scripts/build-images.ts ──► public/img/
+                                                            src/data/images.generated.ts
 ```
 
 Em runtime, uma rota dinâmica atende todos os catálogos, com o serviço síncrono:
@@ -165,11 +181,38 @@ O corte de duas colunas do grid é `md` (768px), não `sm` (640px): em portrait 
 tablet o card ainda respira, e a 640px dois cards deixariam título e preço
 apertados.
 
+### Imagens
+
+`build-images.ts` resolve a origem de cada produto — `imagem_url` normalizada
+(qualquer link de arquivo do Drive vira o endpoint de thumbnail) ou, sem
+coluna, `https://res.cloudinary.com/<cloud>/image/upload/<id>.jpg` —, baixa
+com `If-None-Match`, recorta em quadrado uma vez (`position: "attention"`) e
+emite AVIF q50 e WebP q78 em 320/480/640/960, sem ampliar o original. O
+manifesto guarda só `{ slug, hash, widths }` por id; `utils/catalog-image.ts`
+monta os nomes (`<slug>-<largura>.<hash>.<ext>`) para o build e para o
+`<Picture>`.
+
+Falha de imagem nunca derruba o deploy sozinha: o produto sai sem foto, com
+aviso de linha, id e título, e o original em cache segura a foto quando a
+origem falha. O disjuntor (`shouldTripBreaker`) só dispara com mais da metade
+quebrada **e** pelo menos 3 — o piso evita que o primeiro link ruim derrube o
+build. 404 em URL derivada sem cache é "sem foto", não falha: é o estado
+normal enquanto as fotos não sobem. Em preview com `ALLOW_STALE_CATALOG=1`, o
+disjuntor vira aviso.
+
+O resumo do log termina em `imagens_ok=N imagens_cache=K imagens_falha=M
+imagens_sem_foto=S`; `imagens_cache` são fotos servidas do cache com a origem
+falhando, e contam no disjuntor.
+
 ### Tipos
 
 - `Product` (`types/product.type.ts`): linha da planilha. `price` é o preço
   cheio; `promoPrice` é opcional e, quando presente, é o valor em destaque no
-  card, com `price` riscado ao lado.
+  card, com `price` riscado ao lado. `imageKey` só existe quando o build emitiu
+  a foto.
+- `CatalogImage` / `CatalogImages` (`types/catalog-image.type.ts`): entrada do
+  manifesto de fotos. `CatalogImages` é `Partial`, então o card é obrigado a
+  tratar o produto sem foto.
 - `NavItem` (`types/nav-item.type.ts`): união discriminada por `kind`
   (`"home" | "catalog"`). `CatalogNavItem` exige `brands`.
 - `CatalogView` / `CatalogBrandGroup` (`services/catalog.service.ts`).
@@ -249,15 +292,18 @@ Implementado e verificado (`tsc -b` e `vite build` passam):
 - rota `/catalogo` sem slug com seletor de catálogos, em vez da rota `*`;
 - listagem em grid responsivo (1 coluna, 2 em `md`, 4 em `lg`);
 - card com marca, título, preço com/sem promoção e CTA de WhatsApp;
+- foto do produto em `<picture>` AVIF/WebP responsivo, com placeholder quando
+  não há foto (CLS medido: 0);
 - busca por título ou marca, com debounce de 250ms e estado vazio próprio;
 - slug inválido, catálogo vazio, busca sem resultado e rota `*` com
   `<EmptyState>`.
 
 O que está aberto — com critérios de aceite — está em
-[PLANO_DEFINITIVO_V1.md](./PLANO_DEFINITIVO_V1.md). Em resumo: imagens dos
-produtos, ausência de SSG e de metadados por rota, `Home.tsx` ainda placeholder,
-sem footer nem botão flutuante. A identidade Aura Beauty (S0) e a Planilha
-Google com testes (S1) já foram entregues.
+[PLANO_DEFINITIVO_V1.md](./PLANO_DEFINITIVO_V1.md). Em resumo: ausência de SSG
+e de metadados por rota, `Home.tsx` ainda placeholder, sem footer nem botão
+flutuante. A identidade Aura Beauty (S0), a Planilha Google com testes (S1) e o
+pipeline de imagens (S2) já foram entregues; as fotos reais dependem da
+consultora subir os arquivos no Cloudinary.
 
 `groupByBrand` continua sem consumidor: a listagem seccionada por marca foi
 movida para fora do escopo do V1 por falta de decisão de UX — ela convive mal
@@ -344,6 +390,13 @@ planilha guarda a URL (Cloudinary como destino, Google Drive tolerado); o build
 baixa, recorta em quadrado e emite AVIF/WebP locais em `public/img/`. Por isso o
 campo do tipo `Product` passa a ser `imageKey`, e não `imageUrl`: torna
 impossível, por tipo, renderizar uma origem remota por engano.
+
+**Decidido — URL do Cloudinary derivada sem pasta.** A conta usa pastas
+dinâmicas: `aura-beauty/produtos` organiza a Media Library, mas não entra no
+`public_id`. A URL derivada é `.../image/upload/<id>.jpg`, com `.jpg` fixo
+porque o build não sabe a extensão subida e o Cloudinary converte na entrega
+(uma transformação por versão da foto, inclusive HEIC do iPhone). Verificado
+com a foto de teste `TST-001` em 2026-09-30.
 
 O raciocínio completo de cada uma dessas decisões está em
 [PLANO_DEFINITIVO_V1.md](./PLANO_DEFINITIVO_V1.md) §2 a §4.
