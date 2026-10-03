@@ -20,3 +20,14 @@ export function imagePath(
 ): string {
   return `/img/${imageFileName(image, width, format)}`;
 }
+
+/** Lado da maior variante: é a dimensão intrínseca, porque tudo é quadrado. */
+export function imageSize(image: CatalogImage): number {
+  return image.widths[image.widths.length - 1];
+}
+
+export function imageSrcSet(image: CatalogImage, format: ImageFormat): string {
+  return image.widths
+    .map((width) => `${imagePath(image, width, format)} ${width}w`)
+    .join(", ");
+}
