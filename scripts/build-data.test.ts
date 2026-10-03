@@ -1,4 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import sharp from "sharp";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ImageFetcher } from "./build-images.ts";
 import { CATALOG_BRANDS, EXPECTED_HEADERS } from "./catalog-data.ts";
 import { buildCatalog, CatalogBuildError, run } from "./build-data.ts";
 
@@ -277,10 +282,84 @@ describe("buildCatalog", () => {
     await run({ forceFallback: true });
 
     expect(info).toHaveBeenCalledWith(
-      "[catalogo] origem=mock produtos=30 ignorados=0 inativos=0",
+      "[catalogo] origem=mock produtos=30 ignorados=0 inativos=0 imagens_ok=0 imagens_cache=0 imagens_falha=0 imagens_sem_foto=0",
     );
     info.mockRestore();
     warning.mockRestore();
+  });
+});
+
+describe("imagens no catalogo", () => {
+  const dirs: string[] = [];
+  afterEach(async () => {
+    await Promise.all(
+      dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })),
+    );
+  });
+
+  it("liga o imageKey ao manifesto e mantem o produto sem foto intacto", async () => {
+    const cacheDir = await mkdtemp(path.join(os.tmpdir(), "catalogo-"));
+    dirs.push(cacheDir);
+    const png = await sharp({
+      create: { width: 32, height: 32, channels: 3, background: "#fff" },
+    })
+      .png()
+      .toBuffer();
+    const imageFetcher = vi.fn<ImageFetcher>(async () => ({
+      status: 200,
+      headers: {
+        get: (name: string) => (name === "content-type" ? "image/png" : null),
+      },
+      arrayBuffer: async () => Uint8Array.from(png).buffer,
+    }));
+
+    const result = await buildCatalog({
+      env: { ...credentials, CLOUDINARY_CLOUD_NAME: " cloud " },
+      fetcher: sheetsFetcher([
+        EXPECTED_HEADERS,
+        validRow("BOT-001").map((value, column) =>
+          column === 5 ? "https://cdn.exemplo.com/a.png" : value,
+        ),
+        validRow("BOT-002"),
+      ]),
+      imageFetcher,
+      imagePaths: { cacheDir },
+    });
+
+    expect(imageFetcher.mock.calls.map(([url]) => url).sort()).toEqual([
+      "https://cdn.exemplo.com/a.png",
+      "https://res.cloudinary.com/cloud/image/upload/BOT-002.jpg",
+    ]);
+    expect(result.products.map((product) => product.imageKey)).toEqual([
+      "BOT-001",
+      "BOT-002",
+    ]);
+    expect(Object.keys(result.images).sort()).toEqual(["BOT-001", "BOT-002"]);
+    expect(result.imageCounts).toEqual({
+      ok: 2,
+      cache: 0,
+      failed: 0,
+      missing: 0,
+    });
+    expect(result.output).toContain('"imageKey": "BOT-001"');
+    expect(result.imagesOutput).toContain('"slug": "bot-002"');
+    // Original de 32 px: uma largura efetiva por produto, em dois formatos.
+    expect(result.images["BOT-001"]?.widths).toEqual([32]);
+    expect(result.imageFiles.size).toBe(4);
+  });
+
+  it("sem cloud name e sem coluna, nada e baixado", async () => {
+    const imageFetcher = vi.fn();
+    const result = await buildCatalog({
+      env: credentials,
+      fetcher: sheetsFetcher([EXPECTED_HEADERS, validRow()]),
+      imageFetcher,
+    });
+
+    expect(imageFetcher).not.toHaveBeenCalled();
+    expect(result.products[0].imageKey).toBeUndefined();
+    expect(result.imageCounts.missing).toBe(1);
+    expect(result.imagesOutput).toContain("= {};");
   });
 });
 
@@ -353,7 +432,7 @@ describe("ALLOW_STALE_CATALOG", () => {
       expect.stringContaining("ALLOW_STALE_CATALOG=1, usando products.mock.ts"),
     );
     expect(info).toHaveBeenCalledWith(
-      "[catalogo] origem=mock produtos=30 ignorados=0 inativos=0",
+      "[catalogo] origem=mock produtos=30 ignorados=0 inativos=0 imagens_ok=0 imagens_cache=0 imagens_falha=0 imagens_sem_foto=0",
     );
     info.mockRestore();
     warning.mockRestore();

@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 src/data/products.generated.ts
+src/data/images.generated.ts
+public/img
 consultora/*.pdf
 *.local
 
