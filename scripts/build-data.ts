@@ -228,7 +228,7 @@ async function readSheetCatalog(
     );
   }
 
-  const products = sortProducts(accepted);
+  const products = sortProducts(accepted).map(({ product }) => product);
   return {
     products,
     warnings,

@@ -12,16 +12,7 @@ function CatalogCard({ product }: CatalogCardProps) {
 
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
-      <div className="aspect-square w-full bg-surface-soft">
-        {product.imageUrl ? (
-          <img
-            src={product.imageUrl}
-            alt={product.title}
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
-        ) : null}
-      </div>
+      <div className="aspect-square w-full bg-surface-soft" />
 
       <div className="flex flex-1 flex-col gap-1 p-4">
         <p className="text-xs uppercase tracking-wide text-text-secondary">

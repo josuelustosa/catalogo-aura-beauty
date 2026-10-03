@@ -101,17 +101,29 @@ describe("parseRow", () => {
     const parsed = parseRow(validRow({ 4: 100, 5: "" }), 2, 0);
     expect(parsed).toMatchObject({
       kind: "accepted",
-      value: { product: { price: 100 } },
+      value: { product: { price: 100 }, line: 2 },
       warnings: [{ line: 2, message: "preco promocional descartado" }],
     });
     if (parsed.kind === "accepted") {
       expect(parsed.value.product.promoPrice).toBeUndefined();
-      expect(parsed.value.product.imageUrl).toBeUndefined();
+      expect(parsed.value.imageUrl).toBeUndefined();
     }
 
     expect(parseRow(validRow({ 6: false }), 2, 0)).toEqual({
       kind: "inactive",
     });
+  });
+
+  it("guarda a imagem_url fora do produto, para o pipeline de imagens", () => {
+    const parsed = parseRow(validRow({ 5: " https://cdn/foto.jpg " }), 2, 0);
+    expect(parsed).toMatchObject({
+      kind: "accepted",
+      value: { imageUrl: "https://cdn/foto.jpg" },
+    });
+    if (parsed.kind === "accepted") {
+      expect(parsed.value.product).not.toHaveProperty("imageUrl");
+      expect(parsed.value.product).not.toHaveProperty("imageKey");
+    }
   });
 });
 
@@ -129,9 +141,13 @@ describe("saida deterministica", () => {
       throw new Error("fixtures deveriam ser aceitas");
     }
 
-    const output = serializeProducts(
-      sortProducts([first.value, third.value, second.value]),
+    const sorted = sortProducts([first.value, third.value, second.value]).map(
+      ({ product }) => product,
     );
+    const output = serializeProducts([
+      { ...sorted[0], imageKey: "BOT-001" },
+      ...sorted.slice(1),
+    ]);
     expect(output).toContain(
       "// GERADO POR scripts/build-data.ts — NÃO EDITE À MÃO",
     );
@@ -142,5 +158,6 @@ describe("saida deterministica", () => {
       output.indexOf('"EUD-001"'),
     );
     expect(output).toContain('"id": "BOT-001"');
+    expect(output.match(/"imageKey": "BOT-001"/g)).toHaveLength(1);
   });
 });
