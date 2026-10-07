@@ -8,6 +8,7 @@ import { defineConfig, globalIgnores } from "eslint/config";
 export default defineConfig([
   globalIgnores([
     "dist",
+    "dist-ssr",
     "src/data/products.generated.ts",
     "src/data/images.generated.ts",
   ]),

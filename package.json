@@ -11,6 +11,8 @@
     "dev": "vite",
     "prebuild": "node --env-file-if-exists=.env scripts/build-data.ts",
     "build": "tsc -b && vite build",
+    "build:client": "vite build",
+    "build:ssr": "vite build --ssr src/entry-server.tsx --outDir dist-ssr",
     "pretest": "node --env-file-if-exists=.env scripts/build-data.ts --fallback",
     "test": "vitest run",
     "lint": "eslint .",
