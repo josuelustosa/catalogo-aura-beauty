@@ -1,6 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rewrites": [
-    { "source": "/((?!assets/|img/).*)", "destination": "/index.html" }
-  ]
+  "cleanUrls": true,
+  "trailingSlash": false
 }

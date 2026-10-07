@@ -9,6 +9,8 @@ import {
 
 import { createAppRoutes } from "./router/tree";
 
+export { PRERENDER_PATHS } from "./seo/route-meta";
+
 const RENDER_TIMEOUT_MS = 10_000;
 
 export async function renderWithRoutes(

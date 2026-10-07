@@ -25,4 +25,9 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // Só roda no Node durante o build; nunca passa pelo Fast Refresh.
+    files: ["src/entry-server.tsx"],
+    rules: { "react-refresh/only-export-components": "off" },
+  },
 ]);
