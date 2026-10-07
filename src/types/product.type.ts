@@ -11,7 +11,8 @@ export type Product = {
   price: number;
   /** Preço promocional. Quando presente, é o valor em destaque no card. */
   promoPrice?: number;
-  imageUrl?: string;
+  /** Chave no manifesto de imagens gerado no build. Ausente = sem foto. */
+  imageKey?: string;
   /** Indica que o produto deve aparecer na seção de destaques. */
   featured?: boolean;
 };

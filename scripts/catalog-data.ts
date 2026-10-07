@@ -26,6 +26,9 @@ export type CatalogWarning = {
 
 export type AcceptedProduct = {
   product: Product;
+  line: number;
+  /** Valor cru da coluna imagem_url; quem resolve é o pipeline de imagens. */
+  imageUrl?: string;
   brandRank: number;
   order: number | undefined;
   rowIndex: number;
@@ -192,53 +195,52 @@ export function parseRow(
     }
   }
 
-  const imageUrl = textCell(row[5]);
-  if (imageUrl) {
-    product.imageUrl = imageUrl;
-  }
-
   if (isTrue(row[8])) {
     product.featured = true;
   }
 
-  return {
-    kind: "accepted",
-    value: {
-      product,
-      brandRank,
-      order: optionalOrder(row[7]),
-      rowIndex,
-    },
-    warnings,
+  const value: AcceptedProduct = {
+    product,
+    line,
+    brandRank,
+    order: optionalOrder(row[7]),
+    rowIndex,
   };
+
+  const imageUrl = textCell(row[5]);
+  if (imageUrl) {
+    value.imageUrl = imageUrl;
+  }
+
+  return { kind: "accepted", value, warnings };
 }
 
-export function sortProducts(products: readonly AcceptedProduct[]): Product[] {
-  return [...products]
-    .sort((left, right) => {
-      if (left.brandRank !== right.brandRank) {
-        return left.brandRank - right.brandRank;
-      }
+export function sortProducts(
+  products: readonly AcceptedProduct[],
+): AcceptedProduct[] {
+  return [...products].sort((left, right) => {
+    if (left.brandRank !== right.brandRank) {
+      return left.brandRank - right.brandRank;
+    }
 
-      if (left.order === undefined && right.order !== undefined) {
-        return 1;
-      }
+    if (left.order === undefined && right.order !== undefined) {
+      return 1;
+    }
 
-      if (left.order !== undefined && right.order === undefined) {
-        return -1;
-      }
+    if (left.order !== undefined && right.order === undefined) {
+      return -1;
+    }
 
-      if (
-        left.order !== undefined &&
-        right.order !== undefined &&
-        left.order !== right.order
-      ) {
-        return left.order - right.order;
-      }
+    if (
+      left.order !== undefined &&
+      right.order !== undefined &&
+      left.order !== right.order
+    ) {
+      return left.order - right.order;
+    }
 
-      return left.rowIndex - right.rowIndex;
-    })
-    .map(({ product }) => product);
+    return left.rowIndex - right.rowIndex;
+  });
 }
 
 export function serializeProducts(products: readonly Product[]): string {
@@ -254,8 +256,8 @@ export function serializeProducts(products: readonly Product[]): string {
       stableProduct.promoPrice = product.promoPrice;
     }
 
-    if (product.imageUrl !== undefined) {
-      stableProduct.imageUrl = product.imageUrl;
+    if (product.imageKey !== undefined) {
+      stableProduct.imageKey = product.imageKey;
     }
 
     if (product.featured !== undefined) {

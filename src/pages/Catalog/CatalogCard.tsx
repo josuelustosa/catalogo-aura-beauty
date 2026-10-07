@@ -1,23 +1,27 @@
+import Picture from "../../components/Picture";
+import { IMAGES } from "../../data/images.generated";
 import type { Product } from "../../types/product.type";
 import { formatPrice } from "../../utils/format-price";
 import { buildWhatsAppLink } from "../../utils/whatsapp";
 
 type CatalogCardProps = {
   product: Product;
+  priority?: boolean;
 };
 
-function CatalogCard({ product }: CatalogCardProps) {
+function CatalogCard({ product, priority = false }: CatalogCardProps) {
   const hasPromo = product.promoPrice !== undefined;
   const displayPrice = product.promoPrice ?? product.price;
+  const image = product.imageKey ? IMAGES[product.imageKey] : undefined;
 
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
       <div className="aspect-square w-full bg-surface-soft">
-        {product.imageUrl ? (
-          <img
-            src={product.imageUrl}
+        {image ? (
+          <Picture
+            image={image}
             alt={product.title}
-            loading="lazy"
+            priority={priority}
             className="h-full w-full object-cover"
           />
         ) : null}

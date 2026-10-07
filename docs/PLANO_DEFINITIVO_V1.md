@@ -97,18 +97,18 @@ Uma planilha, "Aura Beauty — Catálogo", com três abas:
 
 Linha 1 são os cabeçalhos, congelada e protegida.
 
-| Col | Cabeçalho           | Tipo     | Validação de dados                             | Obr. | Regra                                                               |
-| --- | ------------------- | -------- | ---------------------------------------------- | ---- | ------------------------------------------------------------------- |
-| A   | `id`                | texto    | —                                              | ✅   | Único e estável (`BOT-001`). Vira `key` no React — nunca reutilizar |
-| B   | `marca`             | texto    | **Lista de `_marcas!A:A`, "Rejeitar entrada"** | ✅   | Chave de junção com `brands` do menu                                |
-| C   | `titulo`            | texto    | —                                              | ✅   | Nome completo com tamanho/quantidade                                |
-| D   | `preco`             | número   | número > 0                                     | ✅   | Formatar a célula como **Número**, não Moeda                        |
-| E   | `preco_promocional` | número   | fórmula `= E2 < D2`                            | —    | Vazio = sem promoção                                                |
-| F   | `imagem_url`        | texto    | —                                              | —    | Link do Drive ou Cloudinary (§4)                                    |
-| G   | `ativo`             | booleano | caixa de seleção                               | ✅   | `FALSE` remove o produto do site                                    |
-| H   | `ordem`             | inteiro  | —                                              | —    | Ordena dentro da marca; vazio vai para o fim                        |
-| I   | `destaque`          | booleano | caixa de seleção                               | —    | Alimenta a seção de destaques da Home                               |
-| J   | `atualizado_em`     | data     | —                                              | —    | Operacional; não entra no bundle                                    |
+| Col | Cabeçalho           | Tipo     | Validação de dados                             | Obr. | Regra                                                                |
+| --- | ------------------- | -------- | ---------------------------------------------- | ---- | -------------------------------------------------------------------- |
+| A   | `id`                | texto    | —                                              | ✅   | Único e estável (`BOT-001`). Vira `key` no React — nunca reutilizar  |
+| B   | `marca`             | texto    | **Lista de `_marcas!A:A`, "Rejeitar entrada"** | ✅   | Chave de junção com `brands` do menu                                 |
+| C   | `titulo`            | texto    | —                                              | ✅   | Nome completo com tamanho/quantidade                                 |
+| D   | `preco`             | número   | número > 0                                     | ✅   | Formatar a célula como **Número**, não Moeda                         |
+| E   | `preco_promocional` | número   | fórmula `= E2 < D2`                            | —    | Vazio = sem promoção                                                 |
+| F   | `imagem_url`        | texto    | —                                              | —    | Vazia: foto pelo `id` no Cloudinary; link do Drive como exceção (§4) |
+| G   | `ativo`             | booleano | caixa de seleção                               | ✅   | `FALSE` remove o produto do site                                     |
+| H   | `ordem`             | inteiro  | —                                              | —    | Ordena dentro da marca; vazio vai para o fim                         |
+| I   | `destaque`          | booleano | caixa de seleção                               | —    | Alimenta a seção de destaques da Home                                |
+| J   | `atualizado_em`     | data     | —                                              | —    | Operacional; não entra no bundle                                     |
 
 O tipo `Product` muda em dois pontos: ganha `featured?: boolean` (coluna I) e troca `imageUrl?: string` por **`imageKey?: string`** (§4). Trocar o campo é deliberado — torna _impossível por tipo_ renderizar uma origem remota, que é justamente o que o pipeline de imagens existe para evitar. `ativo`, `ordem` e `atualizado_em` são consumidos pelo script e não chegam ao tipo.
 
@@ -187,7 +187,7 @@ Um Deploy Hook da Vercel mais um menu no Apps Script da planilha: `Aura Beauty �
 
 ## 4. Pipeline de imagens
 
-A consultora cola uma URL na coluna `imagem_url`. O build faz o resto, e **a origem remota nunca é acessada pelo usuário final** — o que tira do caminho crítico a lentidão e os limites do Google Drive.
+A consultora sobe a foto no Cloudinary com o nome do `id` (ou, como exceção, cola um link do Drive em `imagem_url`). O build faz o resto, e **a origem remota nunca é acessada pelo usuário final** — o que tira do caminho crítico a lentidão e os limites do Google Drive.
 
 ### 4.1 Etapas
 
@@ -218,6 +218,8 @@ Dois detalhes que decidem se isso é otimização ou regressão:
 
 Falhar o deploy por um link quebrado significaria que **mover um arquivo para a lixeira derruba o site**. Se existir original em cache, ele é usado com aviso — o que dá uma janela de tolerância para alguém perceber. **Disjuntor: mais de 50% das imagens falhando é estrutural** e aí sim quebra o build; é o que separa "um link apodreceu" de "a pasta do Drive foi despublicada".
 
+> **Implementado com um piso:** o disjuntor só dispara com mais da metade quebrada **e** pelo menos 3 quebradas — sem o piso, o primeiro link ruim colado (1 de 1 = 100%) derrubaria o deploy, exatamente o que esta seção proíbe. Fotos servidas do cache contam como quebradas. 404 numa URL derivada sem original em cache é "sem foto", não falha: é o estado normal até a foto subir. Em preview com `ALLOW_STALE_CATALOG=1`, o disjuntor vira aviso e o catálogo sai sem as fotos que falharam.
+
 ### 4.4 Cache entre builds
 
 A Vercel **sempre** preserva `node_modules/**` entre builds e **não permite configurar quais diretórios cachear** — por isso o cache fica sob `node_modules/.cache/`, que é o único mecanismo suportado, não uma gambiarra. Build frio (30 produtos × 4 larguras × 2 formatos = 240 codificações) fica em ~30–60 s; quente, em poucos segundos.
@@ -236,11 +238,11 @@ A migração não muda uma linha do pipeline — só as URLs na planilha.
 
 Isso reposiciona completamente o consumo do plano gratuito, que é medido em **créditos mensais** (na prática: 1 crédito ≈ 1.000 transformações, ou 1 GB armazenado, ou 1 GB de banda de entrega):
 
-| Recurso              | Como este projeto consome                                        | Ordem de grandeza                    |
-| -------------------- | ---------------------------------------------------------------- | ------------------------------------ |
-| **Transformações**   | Nenhuma — pedimos o arquivo original, sem `f_auto`/`q_auto`/`w_` | **zero**                             |
-| **Banda de entrega** | Só o build, e só quando o cache de §4.4 dá miss                  | ~15 MB num build frio de 30 produtos |
-| **Armazenamento**    | Uma imagem original por produto                                  | ~15 MB a 30 produtos; ~150 MB a 300  |
+| Recurso              | Como este projeto consome                                       | Ordem de grandeza                    |
+| -------------------- | --------------------------------------------------------------- | ------------------------------------ |
+| **Transformações**   | Uma por versão de foto: a conversão para `.jpg` da URL derivada | ~1 por foto, nunca por visita        |
+| **Banda de entrega** | Só o build, e só quando o cache de §4.4 dá miss                 | ~15 MB num build frio de 30 produtos |
+| **Armazenamento**    | Uma imagem original por produto                                 | ~15 MB a 30 produtos; ~150 MB a 300  |
 
 O consumo **não cresce com o tráfego do site**, e é isso que torna o plano gratuito sustentável de verdade aqui: dobrar as visitas não consome nem um byte do Cloudinary. Um catálogo de 300 produtos ainda fica em uma fração de um crédito por mês.
 
@@ -249,13 +251,14 @@ O consumo **não cresce com o tráfego do site**, e é isso que torna o plano gr
 **Como a consultora usa, na prática:**
 
 1. Conta gratuita no Cloudinary (não pede cartão). Anotar o **`cloud_name`**, que aparece no painel.
-2. Criar a pasta `aura-beauty/produtos` na Media Library.
-3. Subir as fotos arrastando na Media Library (web ou celular). **Nomear cada arquivo com o `id` do produto** da planilha — `BOT-001.jpg`, `NAT-014.jpg`.
-4. Copiar a URL pública do arquivo e colar na coluna `imagem_url`:
+2. Criar a pasta `aura-beauty/produtos` na Media Library. Ela só organiza o painel: a conta usa **pastas dinâmicas**, e a pasta **não entra** no `public_id` nem na URL.
+3. Subir as fotos arrastando na Media Library (web ou celular). **Nomear cada arquivo com o `id` do produto** da planilha — `BOT-001.jpg`, `NAT-014.jpg`. O `public_id` fica exatamente o nome, sem sufixo.
+4. Deixar `imagem_url` em branco. O build monta a URL sozinho:
    ```
-   https://res.cloudinary.com/<cloud_name>/image/upload/aura-beauty/produtos/BOT-001.jpg
+   https://res.cloudinary.com/<cloud_name>/image/upload/BOT-001.jpg
    ```
-5. Trocar a foto de um produto = subir por cima com o mesmo nome. O ETag muda, o build rebaixa e recodifica sozinho (§4.4); nada na planilha precisa ser editado.
+   `.jpg` é fixo de propósito: o build não sabe a extensão subida, e o Cloudinary converte na entrega — inclusive HEIC do iPhone, que o `sharp` pré-compilado não decodifica. É uma transformação por versão da foto, não por visita.
+5. Trocar a foto de um produto = subir por cima com o mesmo nome (o painel pergunta "Duplicate Public ID Found" → Continue). O ETag muda, o build rebaixa e recodifica sozinho (§4.4); nada na planilha precisa ser editado. Verificado com a foto de teste `TST-001` em 2026-09-30.
 
 **Por que o passo 3 importa:** se o `public_id` for igual ao `id` da planilha, a URL vira previsível. Com `CLOUDINARY_CLOUD_NAME` configurado, o `scripts/build-data.ts` pode **montar a URL sozinho** quando `imagem_url` estiver vazia, e a coluna passa a existir só para exceções (uma imagem hospedada em outro lugar). Menos um campo para errar — e a coluna continua tendo precedência quando preenchida, então a convenção nunca vira uma amarra.
 
@@ -321,7 +324,7 @@ Preset **Vite** na Vercel (não Next), output `dist`. Nenhuma variável de dados
 | `VITE_WHATSAPP_NUMBER`  | Cliente      | número real                 | número de teste       |
 | `VITE_INSTAGRAM_URL`    | Cliente      | perfil real                 | perfil real           |
 
-`ALLOW_STALE_CATALOG=1` vale **somente com `VERCEL_ENV === "preview"`** (comparação com `preview`, não com "diferente de production", para ambiente desconhecido falhar): erro de leitura ou de validação da planilha degrada para `products.mock.ts` com aviso alto no log, em vez de falhar o build — um PR de UI não trava porque alguém está no meio de uma edição em `produtos_preview`. Credencial ausente ou parcial continua falhando.
+`ALLOW_STALE_CATALOG=1` vale **somente com `VERCEL_ENV === "preview"`** (comparação com `preview`, não com "diferente de production", para ambiente desconhecido falhar): erro de leitura ou de validação da planilha degrada para `products.mock.ts` com aviso alto no log, em vez de falhar o build — um PR de UI não trava porque alguém está no meio de uma edição em `produtos_preview`. O disjuntor de imagens (§4.3) também vira aviso, e o catálogo sai sem as fotos que falharam. Credencial ausente ou parcial continua falhando.
 
 Uma planilha só, duas abas — exatamente a ideia do briefing, sem duplicar cadastro. A aba `produtos_preview` é a base dos **previews de PR** (uso de dev). O ensaio da consultora — editar `produtos_preview` e conferir numa URL antes de copiar para `produtos` — ficou para o backlog: as URLs de preview da Vercel exigem login no plano atual e só são reconstruídas com push.
 
@@ -545,7 +548,7 @@ Bloqueiam issues específicas e não dependem de código:
 - [ ] Logo definitivo do Aura Beauty em vetor → #02
 - [ ] Domínio escolhido e comprado → #34
 - [ ] Número de WhatsApp de produção e URL do Instagram → #04, #30
-- [ ] Conta gratuita no Cloudinary criada, `cloud_name` anotado e pasta `aura-beauty/produtos` criada (§4.6) → #12
+- [x] Conta gratuita no Cloudinary criada, `cloud_name` anotado e pasta `aura-beauty/produtos` criada (§4.6) → #12
 - [ ] Fotos dos produtos subidas, **nomeadas com o `id` do produto** → #12
 - [ ] Artes dos dois banners 480×160 → #30
 - [ ] Área de entrega em Manaus e prazos, para a Home e o JSON-LD → #28

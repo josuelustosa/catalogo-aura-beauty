@@ -18,6 +18,20 @@ save-exact=true
 
 ---
 
+## Cache de imagens na Vercel
+
+O pipeline de imagens guarda originais e variantes codificadas em
+`node_modules/.cache/catalogo-imagens/`, porque `node_modules/**` é o único
+diretório que a Vercel preserva entre builds. O install command precisa
+continuar no default (`npm install`): **`npm ci` apaga `node_modules` inteiro**
+e o cache evapora a cada deploy — o build continua verde, só fica frio sempre.
+
+O `sharp` traz os binários por plataforma como dependências opcionais
+(`@img/*`). Nunca regenerar o `package-lock.json` com `--omit=optional`, ou o
+build na Vercel (linux-x64) fica sem o binário.
+
+---
+
 ## Fluxo de atualização
 
 ### 1. Verificar dependências disponíveis

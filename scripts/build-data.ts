@@ -1,8 +1,16 @@
-import { mkdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PRODUCTS as FALLBACK_PRODUCTS } from "../src/data/products.mock.ts";
+import type { CatalogImages } from "../src/types/catalog-image.type.ts";
 import type { Product } from "../src/types/product.type.ts";
+import { writeFileAtomic } from "./atomic-write.ts";
+import {
+  buildImages,
+  DEFAULT_OUTPUT_DIR,
+  syncOutput,
+  type ImageCounts,
+  type ImageFetcher,
+} from "./build-images.ts";
 import {
   isBlankRow,
   parseRow,
@@ -13,6 +21,7 @@ import {
   type AcceptedProduct,
   type CatalogWarning,
 } from "./catalog-data.ts";
+import { serializeImages } from "./catalog-images.ts";
 
 type FetchResponse = {
   ok: boolean;
@@ -30,11 +39,18 @@ type SheetRow = {
 export type BuildOptions = {
   env?: NodeJS.ProcessEnv;
   fetcher?: Fetcher;
+  imageFetcher?: ImageFetcher;
+  /** Testes apontam o cache e a saída das imagens para fora do projeto. */
+  imagePaths?: { cacheDir?: string; outputDir?: string };
   forceFallback?: boolean;
 };
 
 export type BuildResult = {
   products: Product[];
+  images: CatalogImages;
+  imageCounts: ImageCounts;
+  /** Ids sem foto no Cloudinary; sai numa linha só do log. */
+  missingImageIds: string[];
   warnings: CatalogWarning[];
   rejected: number;
   inactive: number;
@@ -43,13 +59,27 @@ export type BuildResult = {
   source: string;
   /** Erro que o `ALLOW_STALE_CATALOG` engoliu num preview. */
   staleReason?: string;
+  /** Disjuntor de imagens que o `ALLOW_STALE_CATALOG` rebaixou a aviso. */
+  staleImagesReason?: string;
   output: string;
+  imagesOutput: string;
+  /** Arquivos a publicar em public/img; vazio no fallback. */
+  imageFiles: ReadonlyMap<string, string>;
+};
+
+type SheetCatalog = {
+  accepted: AcceptedProduct[];
+  warnings: CatalogWarning[];
+  rejected: number;
+  inactive: number;
+  source: string;
 };
 
 export class CatalogBuildError extends Error {}
 
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
-const outputPath = path.join(projectRoot, "src/data/products.generated.ts");
+const productsPath = path.join(projectRoot, "src/data/products.generated.ts");
+const imagesPath = path.join(projectRoot, "src/data/images.generated.ts");
 
 function selectedSheetTab(env: NodeJS.ProcessEnv): string {
   // `CATALOG_SHEET_TAB=` num .env define a variável como "", que não cai no `??`.
@@ -59,6 +89,10 @@ function selectedSheetTab(env: NodeJS.ProcessEnv): string {
   }
 
   return env.VERCEL_ENV === "production" ? "produtos" : "produtos_preview";
+}
+
+function cloudNameOf(env: NodeJS.ProcessEnv): string | undefined {
+  return env.CLOUDINARY_CLOUD_NAME?.trim() || undefined;
 }
 
 function isRows(value: unknown): value is unknown[][] {
@@ -158,12 +192,17 @@ function assertUniqueIds(rows: readonly SheetRow[]): void {
 function fallbackResult(): BuildResult {
   return {
     products: FALLBACK_PRODUCTS,
+    images: {},
+    imageCounts: { ok: 0, cache: 0, failed: 0, missing: 0 },
+    missingImageIds: [],
     warnings: [],
     rejected: 0,
     inactive: 0,
     usedFallback: true,
     source: "mock",
     output: serializeProducts(FALLBACK_PRODUCTS),
+    imagesOutput: serializeImages({}),
+    imageFiles: new Map(),
   };
 }
 
@@ -177,7 +216,7 @@ async function readSheetCatalog(
   apiKey: string,
   tab: string,
   fetcher: Fetcher,
-): Promise<BuildResult> {
+): Promise<SheetCatalog> {
   const [productRows, brandRows] = await Promise.all([
     fetchRows(spreadsheetId, `${tab}!A:J`, apiKey, fetcher),
     fetchRows(spreadsheetId, "_marcas!A:A", apiKey, fetcher),
@@ -228,15 +267,61 @@ async function readSheetCatalog(
     );
   }
 
-  const products = sortProducts(accepted);
   return {
-    products,
+    accepted: sortProducts(accepted),
     warnings,
     rejected,
     inactive,
-    usedFallback: false,
     source: tab,
+  };
+}
+
+async function attachImages(
+  sheet: SheetCatalog,
+  env: NodeJS.ProcessEnv,
+  options: BuildOptions,
+): Promise<BuildResult> {
+  const result = await buildImages(
+    sheet.accepted.map(({ product, line, imageUrl }) => ({
+      id: product.id,
+      title: product.title,
+      line,
+      imageUrl,
+    })),
+    {
+      cloudName: cloudNameOf(env),
+      fetcher: options.imageFetcher,
+      cacheDir: options.imagePaths?.cacheDir,
+    },
+  );
+
+  let staleImagesReason: string | undefined;
+  if (result.breaker) {
+    if (!allowsStaleCatalog(env)) {
+      throw new CatalogBuildError(result.breaker);
+    }
+
+    staleImagesReason = result.breaker;
+  }
+
+  const products = sheet.accepted.map(({ product }) =>
+    result.images[product.id] ? { ...product, imageKey: product.id } : product,
+  );
+
+  return {
+    products,
+    images: result.images,
+    imageCounts: result.counts,
+    missingImageIds: result.missingIds,
+    warnings: [...sheet.warnings, ...result.warnings],
+    rejected: sheet.rejected,
+    inactive: sheet.inactive,
+    usedFallback: false,
+    source: sheet.source,
+    staleImagesReason,
     output: serializeProducts(products),
+    imagesOutput: serializeImages(result.images),
+    imageFiles: result.files,
   };
 }
 
@@ -270,8 +355,9 @@ export async function buildCatalog(
   const fetcher: Fetcher = options.fetcher ?? ((url) => fetch(url));
   const tab = selectedSheetTab(env);
 
+  let sheet: SheetCatalog;
   try {
-    return await readSheetCatalog(spreadsheetId, apiKey, tab, fetcher);
+    sheet = await readSheetCatalog(spreadsheetId, apiKey, tab, fetcher);
   } catch (error) {
     if (error instanceof CatalogBuildError && allowsStaleCatalog(env)) {
       return { ...fallbackResult(), staleReason: error.message };
@@ -279,23 +365,23 @@ export async function buildCatalog(
 
     throw error;
   }
-}
 
-async function writeGenerated(output: string): Promise<void> {
-  const temporaryPath = `${outputPath}.${process.pid}.tmp`;
-  await mkdir(path.dirname(outputPath), { recursive: true });
-
-  try {
-    await writeFile(temporaryPath, output, "utf8");
-    await rename(temporaryPath, outputPath);
-  } finally {
-    await rm(temporaryPath, { force: true });
-  }
+  // Fora do try: problema de imagem nunca troca os produtos reais pelo mock.
+  return attachImages(sheet, env, options);
 }
 
 export async function run(options: BuildOptions = {}): Promise<BuildResult> {
+  const env = options.env ?? process.env;
   const result = await buildCatalog(options);
-  await writeGenerated(result.output);
+  await writeFileAtomic(productsPath, result.output);
+  await writeFileAtomic(imagesPath, result.imagesOutput);
+
+  if (!result.usedFallback) {
+    await syncOutput(
+      options.imagePaths?.outputDir ?? DEFAULT_OUTPUT_DIR,
+      result.imageFiles,
+    );
+  }
 
   if (result.staleReason) {
     console.warn(
@@ -303,14 +389,36 @@ export async function run(options: BuildOptions = {}): Promise<BuildResult> {
     );
   } else if (result.usedFallback) {
     console.warn("[catalogo] sem credenciais; usando products.mock.ts");
+  } else if (!cloudNameOf(env)) {
+    console.warn(
+      "[catalogo] aviso=CLOUDINARY_CLOUD_NAME ausente; so a coluna imagem_url gera fotos",
+    );
+  }
+
+  if (result.staleImagesReason) {
+    console.warn(
+      `[catalogo] aviso=${result.staleImagesReason}; ALLOW_STALE_CATALOG=1, publicando sem as fotos que falharam`,
+    );
   }
 
   for (const warning of result.warnings) {
     console.warn(`[catalogo] linha=${warning.line} aviso=${warning.message}`);
   }
 
+  const { ok, cache, failed, missing } = result.imageCounts;
+  if (result.missingImageIds.length > 0) {
+    const ids = result.missingImageIds.join(", ");
+    if (ok + cache === 0) {
+      console.warn(
+        `[catalogo] aviso=nenhuma foto encontrada no Cloudinary; confira CLOUDINARY_CLOUD_NAME e os nomes dos arquivos. Sem foto: ${ids}`,
+      );
+    } else {
+      console.info(`[catalogo] sem foto no Cloudinary: ${ids}`);
+    }
+  }
+
   console.info(
-    `[catalogo] origem=${result.source} produtos=${result.products.length} ignorados=${result.rejected} inativos=${result.inactive}`,
+    `[catalogo] origem=${result.source} produtos=${result.products.length} ignorados=${result.rejected} inativos=${result.inactive} imagens_ok=${ok} imagens_cache=${cache} imagens_falha=${failed} imagens_sem_foto=${missing}`,
   );
 
   return result;
