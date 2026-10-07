@@ -10,6 +10,8 @@ import {
 import { createAppRoutes } from "./router/tree";
 
 export { PRERENDER_PATHS } from "./seo/route-meta";
+export { describePage } from "./ssg/page-expectations";
+export { WHATSAPP_NUMBER } from "./utils/whatsapp";
 
 const RENDER_TIMEOUT_MS = 10_000;
 

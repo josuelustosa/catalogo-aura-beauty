@@ -4,7 +4,7 @@
  * Sem o número, o link abre o WhatsApp com a mensagem pronta e deixa o
  * contato a ser escolhido.
  */
-const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER ?? "";
+export const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER ?? "";
 
 export function buildWhatsAppLink(productTitle: string): string {
   const text = encodeURIComponent(

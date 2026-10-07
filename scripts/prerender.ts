@@ -1,7 +1,8 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { EntryServer } from "../src/ssg/entry-contract.ts";
+import { checkPage } from "./validate-html.ts";
 
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const distDir = path.join(projectRoot, "dist");
@@ -73,17 +74,43 @@ async function main(): Promise<void> {
   }
 
   // A home sobrescreve o template: fica por último.
+  const imageFiles = new Set(
+    await readdir(path.join(distDir, "img")).catch(() => []),
+  );
+  const production = process.env.VERCEL_ENV === "production";
   const paths = [
     ...entry.PRERENDER_PATHS.filter((pathname) => pathname !== "/"),
     "/",
   ];
+  const errors: string[] = [];
+
   for (const pathname of paths) {
     const html = await entry.render(pathname);
-    const target = path.join(distDir, outputFileOf(pathname));
+    const page = fillTemplate(template, { pathname, head: DEFAULT_HEAD, html });
+    const file = outputFileOf(pathname);
+    const result = checkPage({
+      pathname,
+      page,
+      fragment: html,
+      expectation: entry.describePage(pathname),
+      whatsappNumber: entry.WHATSAPP_NUMBER,
+      imageFiles,
+      production,
+    });
+
+    for (const warning of result.warnings) {
+      console.warn(`[prerender] arquivo=dist/${file} aviso=${warning}`);
+    }
+    errors.push(...result.errors.map((error) => `dist/${file}: ${error}`));
+
+    const target = path.join(distDir, file);
     await mkdir(path.dirname(target), { recursive: true });
-    await writeFile(
-      target,
-      fillTemplate(template, { pathname, head: DEFAULT_HEAD, html }),
+    await writeFile(target, page);
+  }
+
+  if (errors.length > 0) {
+    throw new PrerenderError(
+      `HTML gerado reprovado:\n  ${errors.join("\n  ")}`,
     );
   }
 
