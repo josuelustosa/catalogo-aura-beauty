@@ -4,6 +4,7 @@ import {
   fillTemplate,
   outputFileOf,
   PrerenderError,
+  resolveSiteUrl,
 } from "./prerender.ts";
 
 const TEMPLATE = `<!doctype html>
@@ -33,18 +34,32 @@ describe("prerender", () => {
   it("cola o HTML no #root, sem espaco que impeça a hidratacao", () => {
     const page = fillTemplate(TEMPLATE, {
       pathname: "/catalogo",
+      siteUrl: "https://aura.example",
       head: "<title>T</title>",
       html: "<header>$&</header>",
       bodyEnd: '<script type="application/ld+json">{}</script>',
     });
 
     expect(page).toContain(
-      '<html lang="pt-br" data-prerender-path="/catalogo">',
+      '<html lang="pt-br" data-prerender-path="/catalogo" data-site-url="https://aura.example">',
     );
     expect(page).toContain('<div id="root"><header>$&</header></div>');
     expect(page).toContain("<title>T</title>");
     expect(page).toContain('<script type="application/ld+json">{}</script>');
     expect(page).not.toContain("<!--app-");
+  });
+
+  it("resolve a origem do site: SITE_URL, dominio de producao, localhost", () => {
+    expect(
+      resolveSiteUrl({
+        SITE_URL: " https://www.aura.example/ ",
+        VERCEL_PROJECT_PRODUCTION_URL: "aura.example",
+      }),
+    ).toBe("https://www.aura.example");
+    expect(
+      resolveSiteUrl({ VERCEL_PROJECT_PRODUCTION_URL: "aura.vercel.app" }),
+    ).toBe("https://aura.vercel.app");
+    expect(resolveSiteUrl({ SITE_URL: " " })).toBe("http://localhost:4173");
   });
 
   it("recusa template sem marcador ou com marcador repetido", () => {

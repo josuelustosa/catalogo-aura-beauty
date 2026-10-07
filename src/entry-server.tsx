@@ -9,7 +9,8 @@ import {
 
 import { createAppRoutes } from "./router/tree";
 
-export { PRERENDER_PATHS } from "./seo/route-meta";
+export { renderHead } from "./seo/render-head";
+export { getRouteMeta, PRERENDER_PATHS } from "./seo/route-meta";
 export { describePage } from "./ssg/page-expectations";
 export { WHATSAPP_NUMBER } from "./utils/whatsapp";
 

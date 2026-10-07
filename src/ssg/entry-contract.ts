@@ -1,3 +1,5 @@
+import type { RouteMeta, SiteContext } from "../seo/route-meta";
+
 export type PageExpectation = {
   /** Texto exato da <h1>; sem ele, basta uma <h1> não vazia. */
   heading?: string;
@@ -9,6 +11,8 @@ export type PageExpectation = {
 export type EntryServer = {
   render(pathname: string): Promise<string>;
   describePage(pathname: string): PageExpectation;
+  getRouteMeta(pathname: string, site: SiteContext): RouteMeta;
+  renderHead(route: RouteMeta): string;
   PRERENDER_PATHS: readonly string[];
   WHATSAPP_NUMBER: string;
 };

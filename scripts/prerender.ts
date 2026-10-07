@@ -8,12 +8,25 @@ const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const distDir = path.join(projectRoot, "dist");
 const entryPath = path.join(projectRoot, "dist-ssr/entry-server.js");
 
-const DEFAULT_HEAD =
-  "<title>Catálogo Aura Beauty | Produtos à pronta-entrega em Manaus</title>";
 const ROOT_PLACEHOLDER = /<div id="root">\s*<!--app-html-->\s*<\/div>/g;
 const SAFE_PATH = /^\/(?:[a-z0-9-]+(?:\/[a-z0-9-]+)*)?$/;
 
 export class PrerenderError extends Error {}
+
+/**
+ * Origem do canonical, do sitemap e do OG. VERCEL_PROJECT_PRODUCTION_URL já
+ * acompanha o domínio próprio; SITE_URL só é preciso se ele não for o mais
+ * curto (ex.: www com redirect do apex).
+ */
+export function resolveSiteUrl(env: NodeJS.ProcessEnv): string {
+  const explicit = env.SITE_URL?.trim();
+  if (explicit) {
+    return explicit.replace(/\/+$/, "");
+  }
+
+  const production = env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  return production ? `https://${production}` : "http://localhost:4173";
+}
 
 /** "/" → index.html; "/catalogo/x" → catalogo/x.html. */
 export function outputFileOf(pathname: string): string {
@@ -47,11 +60,20 @@ export function assertTemplate(template: string): void {
 
 export function fillTemplate(
   template: string,
-  page: { pathname: string; head: string; html: string; bodyEnd?: string },
+  page: {
+    pathname: string;
+    siteUrl: string;
+    head: string;
+    html: string;
+    bodyEnd?: string;
+  },
 ): string {
   // Colado de propósito: texto em branco dentro de #root impede a hidratação.
   return template
-    .replace(/<html([^>]*)>/, `<html$1 data-prerender-path="${page.pathname}">`)
+    .replace(
+      /<html([^>]*)>/,
+      `<html$1 data-prerender-path="${page.pathname}" data-site-url="${page.siteUrl}">`,
+    )
     .replace("<!--app-head-->", page.head)
     .replace(ROOT_PLACEHOLDER, () => `<div id="root">${page.html}</div>`)
     .replace("<!--app-body-end-->", () => page.bodyEnd ?? "");
@@ -78,6 +100,7 @@ async function main(): Promise<void> {
     await readdir(path.join(distDir, "img")).catch(() => []),
   );
   const production = process.env.VERCEL_ENV === "production";
+  const site = { url: resolveSiteUrl(process.env), indexable: production };
   const paths = [
     ...entry.PRERENDER_PATHS.filter((pathname) => pathname !== "/"),
     "/",
@@ -86,7 +109,13 @@ async function main(): Promise<void> {
 
   for (const pathname of paths) {
     const html = await entry.render(pathname);
-    const page = fillTemplate(template, { pathname, head: DEFAULT_HEAD, html });
+    const head = entry.renderHead(entry.getRouteMeta(pathname, site));
+    const page = fillTemplate(template, {
+      pathname,
+      siteUrl: site.url,
+      head,
+      html,
+    });
     const file = outputFileOf(pathname);
     const result = checkPage({
       pathname,
@@ -114,7 +143,9 @@ async function main(): Promise<void> {
     );
   }
 
-  console.info(`[prerender] rotas=${paths.length} ${paths.join(" ")}`);
+  console.info(
+    `[prerender] rotas=${paths.length} site=${site.url} indexavel=${production ? "sim" : "nao"} ${paths.join(" ")}`,
+  );
 }
 
 if (import.meta.main) {
