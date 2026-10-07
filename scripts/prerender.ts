@@ -110,12 +110,13 @@ async function main(): Promise<void> {
 
   for (const pathname of paths) {
     const html = await entry.render(pathname);
-    const head = entry.renderHead(entry.getRouteMeta(pathname, site));
+    const route = entry.getRouteMeta(pathname, site);
     const page = fillTemplate(template, {
       pathname,
       siteUrl: site.url,
-      head,
+      head: entry.renderHead(route),
       html,
+      bodyEnd: entry.renderBodyEnd(route),
     });
     const file = outputFileOf(pathname);
     const result = checkPage({

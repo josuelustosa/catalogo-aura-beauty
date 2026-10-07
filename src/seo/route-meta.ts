@@ -1,4 +1,8 @@
 import { CATALOG_NAV_ITEMS } from "../mocks/nav-item.mock";
+import type { RouteMeta, SiteContext } from "../types/route-meta.type";
+import { buildJsonLd } from "./json-ld";
+
+export type { RouteMeta, SiteContext };
 
 export const SITE_NAME = "Aura Beauty";
 export const OG_IMAGE_PATH = "/aura-beauty-open-graph-1200x630.png";
@@ -10,24 +14,6 @@ export const PRERENDER_PATHS: readonly string[] = [
   ...CATALOG_NAV_ITEMS.map((item) => item.path),
   "/404",
 ];
-
-export type SiteContext = {
-  /** Origem absoluta, sem barra final: https://dominio. */
-  url: string;
-  /** Só produção é indexável; preview e local saem com noindex. */
-  indexable: boolean;
-};
-
-export type RouteMeta = {
-  path: string;
-  title: string;
-  description: string;
-  /** Ausente em página de erro: o 404.html é servido em qualquer caminho. */
-  canonical: string | null;
-  robots: "index, follow" | "noindex";
-  ogImage: string;
-  jsonLd: readonly object[];
-};
 
 type RouteCopy = {
   title: string;
@@ -75,6 +61,7 @@ function copyOf(pathname: string): RouteCopy {
 
 export function getRouteMeta(pathname: string, site: SiteContext): RouteMeta {
   const copy = copyOf(pathname);
+  const ogImage = `${site.url}${OG_IMAGE_PATH}`;
 
   return {
     path: pathname,
@@ -82,7 +69,7 @@ export function getRouteMeta(pathname: string, site: SiteContext): RouteMeta {
     description: copy.description,
     canonical: copy.notFound ? null : `${site.url}${pathname}`,
     robots: site.indexable && !copy.notFound ? "index, follow" : "noindex",
-    ogImage: `${site.url}${OG_IMAGE_PATH}`,
-    jsonLd: [],
+    ogImage,
+    jsonLd: buildJsonLd(pathname, site.url, SITE_NAME, ogImage),
   };
 }

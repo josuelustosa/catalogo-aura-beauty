@@ -1,3 +1,4 @@
+import { serializeJsonLd } from "./json-ld";
 import { SITE_NAME, type RouteMeta } from "./route-meta";
 
 /** Três rótulos do menu têm "&" cru; sem escape o HTML sai inválido. */
@@ -43,4 +44,14 @@ export function renderHead(route: RouteMeta): string {
   );
 
   return tags.join("\n    ");
+}
+
+/** Antes do </body>: a lista de produtos cresce com o catálogo. */
+export function renderBodyEnd(route: RouteMeta): string {
+  return route.jsonLd
+    .map(
+      (data) =>
+        `<script type="application/ld+json">${serializeJsonLd(data)}</script>`,
+    )
+    .join("\n    ");
 }
