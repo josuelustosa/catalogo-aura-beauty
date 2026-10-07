@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { CATALOG_NAV_ITEMS } from "../mocks/nav-item.mock";
+import { IMAGE_SIZES, imageSrcSet } from "../utils/catalog-image";
 import { escapeHtml, renderHead } from "./render-head";
 import { getRouteMeta, PRERENDER_PATHS } from "./route-meta";
 
@@ -68,6 +69,25 @@ describe("renderHead", () => {
     expect(escapeHtml(`<a href="x">'&'</a>`)).toBe(
       "&lt;a href=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/a&gt;",
     );
+  });
+
+  it("pre-carrega a foto do LCP com o mesmo srcset e sizes do <Picture>", () => {
+    const image = { slug: "bot-001", hash: "0123abcd", widths: [320, 480] };
+    const head = renderHead({
+      ...getRouteMeta("/catalogo/moda-intima", production),
+      lcpImage: { srcSet: imageSrcSet(image, "avif"), sizes: IMAGE_SIZES },
+    });
+
+    expect(head).toContain(
+      '<link rel="preload" as="image" type="image/avif" imagesrcset="/img/bot-001-320.0123abcd.avif 320w, /img/bot-001-480.0123abcd.avif 480w" imagesizes="(min-width: 1024px) 292px, (min-width: 768px) 45vw, 92vw" fetchpriority="high" />',
+    );
+  });
+
+  it("nao pre-carrega nada sem foto no primeiro card", () => {
+    for (const path of PRERENDER_PATHS) {
+      expect(getRouteMeta(path, production).lcpImage).toBeNull();
+    }
+    expect(renderHead(getRouteMeta("/", production))).not.toContain("preload");
   });
 
   it("omite canonical e og:url no 404", () => {

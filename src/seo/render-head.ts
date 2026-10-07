@@ -25,6 +25,14 @@ export function renderHead(route: RouteMeta): string {
     tags.push(`<link rel="canonical" href="${escapeHtml(route.canonical)}" />`);
   }
 
+  // Mesmo srcset AVIF e sizes do <Picture>: o navegador escolhe o mesmo
+  // candidato e reaproveita o download.
+  if (route.lcpImage) {
+    tags.push(
+      `<link rel="preload" as="image" type="image/avif" imagesrcset="${escapeHtml(route.lcpImage.srcSet)}" imagesizes="${escapeHtml(route.lcpImage.sizes)}" fetchpriority="high" />`,
+    );
+  }
+
   tags.push(
     meta("property", "og:type", "website"),
     meta("property", "og:locale", "pt_BR"),

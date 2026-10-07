@@ -1,4 +1,7 @@
+import { IMAGES } from "../data/images.generated";
 import { CATALOG_NAV_ITEMS } from "../mocks/nav-item.mock";
+import { getCatalogBySlug } from "../services/catalog.service";
+import { IMAGE_SIZES, imageSrcSet } from "../utils/catalog-image";
 import type { RouteMeta, SiteContext } from "../types/route-meta.type";
 import { buildJsonLd } from "./json-ld";
 
@@ -59,6 +62,17 @@ function copyOf(pathname: string): RouteCopy {
   };
 }
 
+/** O primeiro card é o LCP do catálogo; o prerender sabe qual é. */
+function lcpImageOf(pathname: string): RouteMeta["lcpImage"] {
+  const item = CATALOG_NAV_ITEMS.find((entry) => entry.path === pathname);
+  const first = item ? getCatalogBySlug(item.slug)?.products[0] : undefined;
+  const image = first?.imageKey ? IMAGES[first.imageKey] : undefined;
+
+  return image
+    ? { srcSet: imageSrcSet(image, "avif"), sizes: IMAGE_SIZES }
+    : null;
+}
+
 export function getRouteMeta(pathname: string, site: SiteContext): RouteMeta {
   const copy = copyOf(pathname);
   const ogImage = `${site.url}${OG_IMAGE_PATH}`;
@@ -71,5 +85,6 @@ export function getRouteMeta(pathname: string, site: SiteContext): RouteMeta {
     robots: site.indexable && !copy.notFound ? "index, follow" : "noindex",
     ogImage,
     jsonLd: buildJsonLd(pathname, site.url, SITE_NAME, ogImage),
+    lcpImage: lcpImageOf(pathname),
   };
 }

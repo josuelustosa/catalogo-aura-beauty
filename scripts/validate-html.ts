@@ -106,13 +106,13 @@ export function checkPage(check: PageCheck): CheckResult {
     errors.push(`catálogo com produtos sem link wa.me/${whatsappNumber}`);
   }
 
-  const images = new Set(
-    [...fragment.matchAll(/\/img\/([^"\s,?]+)/g)].map((match) => match[1]),
-  );
-  if (expectation.hasImages && images.size === 0) {
+  const imagesOf = (html: string) =>
+    new Set([...html.matchAll(/\/img\/([^"\s,?]+)/g)].map((match) => match[1]));
+  if (expectation.hasImages && imagesOf(fragment).size === 0) {
     errors.push("catálogo com foto no manifesto, mas nenhuma /img/ no HTML");
   }
-  for (const image of images) {
+  // O arquivo inteiro: inclui o preload do <head> e o JSON-LD.
+  for (const image of imagesOf(page)) {
     if (!check.imageFiles.has(image)) {
       errors.push(`/img/${image} referenciada e ausente em dist/img`);
     }

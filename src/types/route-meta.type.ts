@@ -14,4 +14,6 @@ export type RouteMeta = {
   robots: "index, follow" | "noindex";
   ogImage: string;
   jsonLd: readonly object[];
+  /** Foto do primeiro card, pré-carregada no <head>; só em catálogo com foto. */
+  lcpImage: { srcSet: string; sizes: string } | null;
 };

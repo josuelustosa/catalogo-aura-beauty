@@ -1,8 +1,10 @@
 import type { CatalogImage } from "../types/catalog-image.type";
-import { imagePath, imageSize, imageSrcSet } from "../utils/catalog-image";
-
-/** Descreve a grade real do CatalogGrid; `100vw` mandaria o 960 para o celular. */
-const SIZES = "(min-width: 1024px) 292px, (min-width: 768px) 45vw, 92vw";
+import {
+  IMAGE_SIZES,
+  imagePath,
+  imageSize,
+  imageSrcSet,
+} from "../utils/catalog-image";
 
 type PictureProps = {
   image: CatalogImage;
@@ -20,12 +22,12 @@ function Picture({ image, alt, priority = false, className }: PictureProps) {
       <source
         type="image/avif"
         srcSet={imageSrcSet(image, "avif")}
-        sizes={SIZES}
+        sizes={IMAGE_SIZES}
       />
       <source
         type="image/webp"
         srcSet={imageSrcSet(image, "webp")}
-        sizes={SIZES}
+        sizes={IMAGE_SIZES}
       />
       <img
         src={imagePath(image, size, "webp")}
