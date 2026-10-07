@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { EntryServer } from "../src/ssg/entry-contract.ts";
+import { buildRobots, buildSitemap } from "./site-files.ts";
 import { checkPage } from "./validate-html.ts";
 
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
@@ -142,6 +143,15 @@ async function main(): Promise<void> {
       `HTML gerado reprovado:\n  ${errors.join("\n  ")}`,
     );
   }
+
+  await writeFile(
+    path.join(distDir, "sitemap.xml"),
+    buildSitemap(entry.PRERENDER_PATHS, site.url),
+  );
+  await writeFile(
+    path.join(distDir, "robots.txt"),
+    buildRobots(site.url, site.indexable),
+  );
 
   console.info(
     `[prerender] rotas=${paths.length} site=${site.url} indexavel=${production ? "sim" : "nao"} ${paths.join(" ")}`,
