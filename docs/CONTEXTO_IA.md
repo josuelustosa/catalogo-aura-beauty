@@ -396,7 +396,10 @@ dinâmicas: `aura-beauty/produtos` organiza a Media Library, mas não entra no
 `public_id`. A URL derivada é `.../image/upload/<id>.jpg`, com `.jpg` fixo
 porque o build não sabe a extensão subida e o Cloudinary converte na entrega
 (uma transformação por versão da foto, inclusive HEIC do iPhone). Verificado
-com a foto de teste `TST-001` em 2026-09-30.
+com a foto de teste `TST-001` em 2026-09-30. Um link do Cloudinary colado em
+`imagem_url` passa pela mesma regra: o build tira a versão e troca a extensão
+por `.jpg`, ou o HEIC chegaria cru ao `sharp` (verificado com `TST-005` em
+2026-10-08).
 
 O raciocínio completo de cada uma dessas decisões está em
 [PLANO_DEFINITIVO_V1.md](./PLANO_DEFINITIVO_V1.md) §2 a §4.

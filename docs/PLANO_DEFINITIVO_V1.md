@@ -257,7 +257,7 @@ O consumo **não cresce com o tráfego do site**, e é isso que torna o plano gr
    ```
    https://res.cloudinary.com/<cloud_name>/image/upload/BOT-001.jpg
    ```
-   `.jpg` é fixo de propósito: o build não sabe a extensão subida, e o Cloudinary converte na entrega — inclusive HEIC do iPhone, que o `sharp` pré-compilado não decodifica. É uma transformação por versão da foto, não por visita.
+   `.jpg` é fixo de propósito: o build não sabe a extensão subida, e o Cloudinary converte na entrega — inclusive HEIC do iPhone, que o `sharp` pré-compilado não decodifica. É uma transformação por versão da foto, não por visita. Se ela colar em `imagem_url` o link copiado do painel (`.../v1791484539/BOT-001.heic`), o build tira a versão e troca a extensão por `.jpg` do mesmo jeito.
 5. Trocar a foto de um produto = subir por cima com o mesmo nome (o painel pergunta "Duplicate Public ID Found" → Continue). O ETag muda, o build rebaixa e recodifica sozinho (§4.4); nada na planilha precisa ser editado. Verificado com a foto de teste `TST-001` em 2026-09-30.
 
 **Por que o passo 3 importa:** se o `public_id` for igual ao `id` da planilha, a URL vira previsível. Com `CLOUDINARY_CLOUD_NAME` configurado, o `scripts/build-data.ts` pode **montar a URL sozinho** quando `imagem_url` estiver vazia, e a coluna passa a existir só para exceções (uma imagem hospedada em outro lugar). Menos um campo para errar — e a coluna continua tendo precedência quando preenchida, então a convenção nunca vira uma amarra.
