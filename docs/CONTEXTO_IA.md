@@ -34,6 +34,10 @@ baixa, recorta em quadrado e emite AVIF/WebP em `public/img/`, com o manifesto
 por um Deploy Hook (`apps-script/Code.gs`), e o guia da consultora fica em
 `consultora/GUIA_DA_PLANILHA.md`.
 
+Cada rota é **pré-renderizada em HTML** no build (SSG próprio, sem framework):
+`scripts/prerender.ts` grava um arquivo por rota em `dist/`, com `<head>`,
+JSON-LD, `sitemap.xml` e `robots.txt` gerados, e o cliente hidrata esse HTML.
+
 ## Stack
 
 | Item         | Versão | Observação                                       |
@@ -50,12 +54,20 @@ por um Deploy Hook (`apps-script/Code.gs`), e o guia da consultora fica em
 Dependências usam **versão exata**, sem `^` ou `~`. Ver
 [dependency-management.md](./dependency-management.md).
 
-Scripts: `npm run dev`, `npm run build` (`tsc -b && vite build`), `npm test`,
+Scripts: `npm run dev`, `npm run build`, `npm test`,
 `npm run lint`, `npm run format` e `npm run format:check`. `predev`, `prebuild`
 e `pretest` rodam `scripts/build-data.ts`, que também roda o pipeline de
 imagens (o `pretest` força o fallback do mock, sem imagens, para os testes do
 serviço serem determinísticos). O cache das imagens fica em
 `node_modules/.cache/catalogo-imagens/`; apagar a pasta só força um build frio.
+
+`npm run build` encadeia `tsc -b` → `build:client` (`vite build`, que gera o
+template com os assets hasheados) → `build:ssr` (`vite build --ssr
+src/entry-server.tsx`, saída em `dist-ssr/`) → `prerender`. O `prebuild` gera os
+`.generated.ts` antes de tudo, então o `tsc -b` também typecheca a saída do
+gerador. O `prerender` **reprova o build** se o HTML de alguma rota sair com
+fallback de `<Suspense>`, sem `<h1>`, sem o link do WhatsApp ou com foto
+inexistente (`scripts/validate-html.ts`).
 
 ---
 
@@ -73,8 +85,13 @@ scripts/
 ├── build-data.ts              # orquestra: planilha → imagens → gerados
 ├── build-images.ts            # download, cache, sharp e emissão em public/img
 ├── catalog-data.ts            # parsing e validação da planilha; puro
-└── catalog-images.ts          # origens, larguras e disjuntor de imagens; puro
+├── catalog-images.ts          # origens, larguras e disjuntor de imagens; puro
+├── prerender.ts               # grava um HTML por rota a partir do dist-ssr
+├── site-files.ts              # sitemap.xml e robots.txt; puro
+└── validate-html.ts           # regras que reprovam o HTML gerado; puro
 src/
+├── entry-server.tsx           # renderiza uma rota em HTML no Node (prerender)
+├── main.tsx                   # hidrata ou renderiza, conforme a guarda de rota
 ├── components/                # UI compartilhada entre páginas
 │   ├── Container.tsx          # larguras "default" (80rem) e "narrow" (48rem)
 │   ├── EmptyState.tsx         # mensagem + saída para qualquer estado vazio
@@ -85,7 +102,8 @@ src/
 │   ├── products.generated.ts  # gerado no build; gitignorado, não edite
 │   └── products.mock.ts       # fixture de fallback e de teste
 ├── hooks/
-│   └── use-debounced-value.ts
+│   ├── use-debounced-value.ts
+│   └── use-route-meta.ts      # título/description/canonical na navegação SPA
 ├── mocks/
 │   └── nav-item.mock.ts       # itens do menu + helpers de catálogo
 ├── pages/
@@ -94,8 +112,12 @@ src/
 │   ├── NotFound.tsx           # rota "*"
 │   └── Catalog/               # página + componentes exclusivos dela
 ├── router/
+│   ├── index.tsx              # createBrowserRouter (toca window)
+│   └── tree.tsx               # árvore única de rotas, do cliente e do SSG
+├── seo/                       # metadados, <head> e JSON-LD por rota
 ├── services/
 │   └── catalog.service.ts
+├── ssg/                       # contrato do dist-ssr e o esperado de cada HTML
 ├── types/
 └── utils/
 ```
@@ -204,6 +226,51 @@ O resumo do log termina em `imagens_ok=N imagens_cache=K imagens_falha=M
 imagens_sem_foto=S`; `imagens_cache` são fotos servidas do cache com a origem
 falhando, e contam no disjuntor.
 
+### Pré-renderização (SSG)
+
+```
+src/entry-server.tsx ──(vite build --ssr)──► dist-ssr/entry-server.js
+                                                    │
+dist/index.html (template do build:client) ─────────┤
+                                                    ▼
+                                   scripts/prerender.ts ──► dist/index.html
+                                                            dist/catalogo.html
+                                                            dist/catalogo/<slug>.html
+                                                            dist/404.html
+                                                            dist/sitemap.xml
+                                                            dist/robots.txt
+```
+
+- **Uma árvore de rotas só** (`router/tree.tsx`), usada pelo
+  `createBrowserRouter` e pelo `createStaticHandler`: duas listas divergiriam.
+- **`PRERENDER_PATHS` sai do menu** (`seo/route-meta.ts`): um catálogo novo em
+  `nav-item.mock.ts` vira página, sitemap e metadados sem tocar em mais nada.
+- **A guarda de hidratação** (`main.tsx`): `hydrateRoot` só quando
+  `<html data-prerender-path>` é igual a `location.pathname`. O `404.html` é
+  servido em qualquer caminho desconhecido; hidratá-lo noutra URL daria
+  mismatch. Não "simplifique" para sempre hidratar.
+- **`scripts/` não importa `src/**`em runtime** (os imports de`src`não têm
+extensão): o`prerender.ts`consome só o`dist-ssr`, pelo contrato
+`ssg/entry-contract.ts`.
+- **A origem do site** vem de `SITE_URL` ou de `VERCEL_PROJECT_PRODUCTION_URL`,
+  resolvida no Node e carimbada em `<html data-site-url>`; só
+  `VERCEL_ENV=production` sai indexável.
+- **O `<head>` na navegação SPA** é mutado por `useRouteMeta()` num efeito,
+  nunca pelo hoisting de `<title>` do React 19 (anexaria um segundo).
+- O primeiro card com foto ganha `<link rel="preload">` no `<head>`, com o
+  mesmo `imagesrcset`/`imagesizes` do `<Picture>` (`IMAGE_SIZES`).
+
+Armadilhas já resolvidas, que não devem voltar:
+
+- texto em branco dentro de `#root` impede a hidratação da página inteira: o
+  template mantém `<div id="root"><!--app-html--></div>` colado;
+- erro de componente dentro de `<Suspense>` não rejeita o `prerender` — o
+  `entry-server` coleta os erros e falha;
+- sem `progressiveChunkSize` no máximo, o React tira a grade de produtos do
+  lugar e a revela com `<script>` inline;
+- `formatPrice` normaliza o espaço depois do "R$" para NBSP: o ICU do Node e o
+  do navegador divergem.
+
 ### Tipos
 
 - `Product` (`types/product.type.ts`): linha da planilha. `price` é o preço
@@ -296,14 +363,22 @@ Implementado e verificado (`tsc -b` e `vite build` passam):
   não há foto (CLS medido: 0);
 - busca por título ou marca, com debounce de 250ms e estado vazio próprio;
 - slug inválido, catálogo vazio, busca sem resultado e rota `*` com
-  `<EmptyState>`.
+  `<EmptyState>`;
+- HTML pré-renderizado por rota, hidratado no cliente (conferido no Chrome em
+  todas as rotas), com `<head>`, JSON-LD, sitemap e robots por ambiente; rota
+  desconhecida responde 404 de verdade.
 
 O que está aberto — com critérios de aceite — está em
-[PLANO_DEFINITIVO_V1.md](./PLANO_DEFINITIVO_V1.md). Em resumo: ausência de SSG
-e de metadados por rota, `Home.tsx` ainda placeholder, sem footer nem botão
-flutuante. A identidade Aura Beauty (S0), a Planilha Google com testes (S1) e o
-pipeline de imagens (S2) já foram entregues; as fotos reais dependem da
-consultora subir os arquivos no Cloudinary.
+[PLANO_DEFINITIVO_V1.md](./PLANO_DEFINITIVO_V1.md). Em resumo: `Home.tsx` ainda
+placeholder (a `<h1>` "Página Inicial" é indexada até o S4), sem footer nem
+botão flutuante. A identidade Aura Beauty (S0), a Planilha Google com testes
+(S1), o pipeline de imagens (S2) e o SSG com SEO técnico (S3) já foram
+entregues; as fotos reais dependem da consultora subir os arquivos no
+Cloudinary.
+
+Ao levar a busca para `?q=` (S4), leia o `q` **depois** da hidratação: no
+primeiro render o servidor não tem query string, e qualquer diferença vira
+mismatch.
 
 `groupByBrand` continua sem consumidor: a listagem seccionada por marca foi
 movida para fora do escopo do V1 por falta de decisão de UX — ela convive mal
@@ -334,7 +409,8 @@ com a busca (`PLANO_DEFINITIVO_V1.md` §12).
   commit `chore` posterior, referência quebrada não.
 - **Antes de commitar,** confira `git status`: alterações pré-staged de outra
   sessão entram no commit se você usar `git commit` sem paths.
-- **Verificação:** `npm run build` cobre typecheck e build. Para validar uma
+- **Verificação:** `npm run build` cobre typecheck, build e a validação do HTML
+  pré-renderizado. Para validar uma
   série de commits, um worktree descartável evita mexer no diretório de
   trabalho.
 
@@ -376,14 +452,17 @@ pré-renderizadas em HTML por um script no build, usando `createStaticHandler` /
 Next.js foram avaliados e descartados: resolveriam com reescrita problemas que um
 site de 8 rotas não tem. **Enquanto houver SSG, não use `route.lazy` nem code
 splitting** — `lazy` força `initialized = false` no cliente, o que renderiza o
-fallback do `<Suspense>` e causa mismatch de hidratação.
+fallback do `<Suspense>` e causa mismatch de hidratação. O mesmo vale para
+**loaders**: sem eles o router do cliente nasce inicializado e o
+`StaticRouterProvider` dispensa dados de hidratação (`hydrate={false}`); com
+um loader, isso passa a ser obrigatório.
 
-**Temporário — fallback de SPA na Vercel.** Enquanto não houver SSG, o
-`vercel.json` reescreve para `index.html` toda rota fora de `/assets/`; sem
-isso, F5 em `/catalogo/...` cai no 404 da Vercel e o `NotFound` do app nunca
-aparece. `/assets/` fica de fora para um arquivo com hash antigo dar 404 real,
-e não HTML no lugar de JS. A rewrite sai com o prerender (`PLANO_DEFINITIVO_V1.md`
-§7), porque aí ela transformaria todo 404 em _soft 404_.
+**Encerrado — fallback de SPA na Vercel.** Até o S3, o `vercel.json`
+reescrevia toda rota para `index.html`, porque sem isso F5 em `/catalogo/...`
+caía no 404 da Vercel. Com o prerender, cada rota é um arquivo: o
+`vercel.json` usa `cleanUrls` e `trailingSlash: false`, **sem rewrite**, e
+caminho desconhecido recebe o `404.html` com status 404. Não volte a pôr
+catch-all: ele transformaria todo 404 em _soft 404_.
 
 **Decidido — imagens otimizadas no build, nunca servidas da origem remota.** A
 planilha guarda a URL (Cloudinary como destino, Google Drive tolerado); o build

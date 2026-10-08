@@ -313,16 +313,16 @@ O `CatalogCard` atual já bate com o Figma (marca em eyebrow, título em negrito
 
 Preset **Vite** na Vercel (não Next), output `dist`. Nenhuma variável de dados leva prefixo `VITE_`.
 
-| Variável                | Escopo       | Production                  | Preview               |
-| ----------------------- | ------------ | --------------------------- | --------------------- |
-| `GOOGLE_SHEETS_ID`      | Build (Node) | id da planilha              | mesmo id              |
-| `GOOGLE_SHEETS_API_KEY` | Build (Node) | chave restrita à Sheets API | mesma chave           |
-| `CATALOG_SHEET_TAB`     | Build (Node) | `produtos`                  | `produtos_preview`    |
-| `CLOUDINARY_CLOUD_NAME` | Build (Node) | mesmo valor                 | mesmo valor           |
-| `ALLOW_STALE_CATALOG`   | Build (Node) | —                           | `1`                   |
-| `VITE_SITE_URL`         | Cliente      | domínio final               | `https://$VERCEL_URL` |
-| `VITE_WHATSAPP_NUMBER`  | Cliente      | número real                 | número de teste       |
-| `VITE_INSTAGRAM_URL`    | Cliente      | perfil real                 | perfil real           |
+| Variável                | Escopo       | Production                                          | Preview            |
+| ----------------------- | ------------ | --------------------------------------------------- | ------------------ |
+| `GOOGLE_SHEETS_ID`      | Build (Node) | id da planilha                                      | mesmo id           |
+| `GOOGLE_SHEETS_API_KEY` | Build (Node) | chave restrita à Sheets API                         | mesma chave        |
+| `CATALOG_SHEET_TAB`     | Build (Node) | `produtos`                                          | `produtos_preview` |
+| `CLOUDINARY_CLOUD_NAME` | Build (Node) | mesmo valor                                         | mesmo valor        |
+| `ALLOW_STALE_CATALOG`   | Build (Node) | —                                                   | `1`                |
+| `SITE_URL`              | Build (Node) | só se o domínio canônico não for o mais curto (www) | —                  |
+| `VITE_WHATSAPP_NUMBER`  | Cliente      | número real                                         | número de teste    |
+| `VITE_INSTAGRAM_URL`    | Cliente      | perfil real                                         | perfil real        |
 
 `ALLOW_STALE_CATALOG=1` vale **somente com `VERCEL_ENV === "preview"`** (comparação com `preview`, não com "diferente de production", para ambiente desconhecido falhar): erro de leitura ou de validação da planilha degrada para `products.mock.ts` com aviso alto no log, em vez de falhar o build — um PR de UI não trava porque alguém está no meio de uma edição em `produtos_preview`. O disjuntor de imagens (§4.3) também vira aviso, e o catálogo sai sem as fotos que falharam. Credencial ausente ou parcial continua falhando.
 
@@ -330,7 +330,9 @@ Uma planilha só, duas abas — exatamente a ideia do briefing, sem duplicar cad
 
 **Preview não pode ser indexado.** `robots` é derivado de `VERCEL_ENV === "production" ? "index" : "noindex"`, e o `robots.txt` gerado emite `Disallow: /` fora de produção. É um esquecimento comum e caro: sem isso o Google indexa `catalogo-abc123.vercel.app` competindo com o domínio real.
 
-**Até o S3, com rewrite de SPA.** Enquanto o site é SPA, o `vercel.json` reescreve para `index.html` toda rota fora de `/assets/`: sem isso, F5 ou link direto em `/catalogo/...` cai no 404 padrão da Vercel. O custo aceito é o _soft 404_ (rota inexistente responde 200 com o `NotFound` do app), que sai com o prerender (#22) e o `vercel.json` final (#36).
+**Até o S3, com rewrite de SPA.** Enquanto o site era SPA, o `vercel.json` reescrevia para `index.html` toda rota fora de `/assets/`, com o custo do _soft 404_. Saiu com o prerender, junto do `vercel.json` final.
+
+**Origem do site.** Canonical, sitemap e Open Graph usam `SITE_URL`, se definida, ou `https://$VERCEL_PROJECT_PRODUCTION_URL`, que a Vercel preenche com o domínio de produção (o mais curto, quando houver domínio próprio). A origem é resolvida no Node e carimbada em `<html data-site-url>`; o cliente não precisa de `VITE_SITE_URL`.
 
 **Sem rewrite de SPA depois do S3.** Com cada rota virando um HTML de verdade, o layout de saída fica:
 
@@ -429,6 +431,8 @@ quando a PR é integrada à branch principal.
 ---
 
 ## 11. Issues
+
+> Os números desta seção (e as referências "#N" do resto do plano) são os do rascunho. No GitHub, cada issue ficou **3 números acima**: o #15 daqui é o #18 de lá.
 
 Os números `#01`–`#37` são **referências internas deste plano** — o GitHub atribuirá os seus. Crie antes os milestones `S0`–`S5` e as labels.
 

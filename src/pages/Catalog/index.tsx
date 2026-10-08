@@ -8,6 +8,7 @@ import {
   getCatalogBySlug,
   searchProducts,
 } from "../../services/catalog.service";
+import NotFound from "../NotFound";
 import CatalogGrid from "./CatalogGrid";
 import CatalogHeader from "./CatalogHeader";
 
@@ -27,15 +28,10 @@ function CatalogContent({ slug }: CatalogContentProps) {
     [catalog, debouncedSearchTerm],
   );
 
+  // Mesmo markup do 404.html, que a Vercel serve em /catalogo/<desconhecido>:
+  // a página não troca de texto ao carregar.
   if (!catalog) {
-    return (
-      <Container>
-        <EmptyState
-          message="Catálogo não encontrado."
-          action={{ label: "Ver catálogos", to: "/catalogo" }}
-        />
-      </Container>
-    );
+    return <NotFound />;
   }
 
   const isEmptyCatalog = catalog.products.length === 0;
