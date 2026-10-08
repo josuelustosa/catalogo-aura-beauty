@@ -51,7 +51,7 @@ describe("imageSourceOf", () => {
       ),
     ).toEqual({
       kind: "source",
-      url: "https://res.cloudinary.com/outra/image/upload/x.png",
+      url: "https://res.cloudinary.com/outra/image/upload/x.jpg",
       origin: "column",
       host: "cloudinary",
     });
@@ -62,6 +62,34 @@ describe("imageSourceOf", () => {
       ),
     ).toMatchObject({ kind: "source", origin: "column", host: "other" });
   });
+
+  it.each([
+    [
+      "copiado do painel",
+      "https://res.cloudinary.com/xtny4sff/image/upload/v1791484539/TST-005.heic",
+      "https://res.cloudinary.com/xtny4sff/image/upload/TST-005.jpg",
+    ],
+    [
+      "sem extensao",
+      "https://res.cloudinary.com/xtny4sff/image/upload/v1/TST-005",
+      "https://res.cloudinary.com/xtny4sff/image/upload/TST-005.jpg",
+    ],
+    [
+      "com transformacao, intocado",
+      "https://res.cloudinary.com/xtny4sff/image/upload/c_fill,w_300/TST-005.png",
+      "https://res.cloudinary.com/xtny4sff/image/upload/c_fill,w_300/TST-005.png",
+    ],
+  ])(
+    "pede .jpg sem versao ao link colado do Cloudinary (%s)",
+    (_, imageUrl, url) => {
+      expect(imageSourceOf({ id: "TST-005", imageUrl }, "xtny4sff")).toEqual({
+        kind: "source",
+        url,
+        origin: "column",
+        host: "cloudinary",
+      });
+    },
+  );
 
   it("deriva a URL do Cloudinary pelo id, sem pasta e sem versao", () => {
     expect(imageSourceOf({ id: "BOT-001" }, "xtny4sff")).toEqual({

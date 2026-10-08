@@ -55,6 +55,23 @@ export function cloudinaryUrl(cloudName: string, id: string): string {
   return `https://res.cloudinary.com/${encodeURIComponent(cloudName)}/image/upload/${encodeURIComponent(id)}.jpg`;
 }
 
+/** `/<cloud>/image/upload/[v123/]<public_id>[.ext]`, sem transformação. */
+const CLOUDINARY_PLAIN_LINK = /^\/([^/]+)\/image\/upload\/(?:v\d+\/)?([^/]+)$/;
+
+/**
+ * O link copiado do painel traz a extensão e a versão: `.heic` chegaria cru ao
+ * sharp, e a versão seguraria a foto antiga depois de uma troca.
+ */
+function cloudinaryLinkAsJpg(url: URL): string {
+  const match = CLOUDINARY_PLAIN_LINK.exec(url.pathname);
+  if (!match) {
+    return url.href;
+  }
+
+  const publicId = match[2].replace(/\.[a-z0-9]+$/i, "");
+  return `${url.origin}/${match[1]}/image/upload/${publicId}.jpg`;
+}
+
 /** A coluna tem precedência; sem ela, a URL vem do id quando há cloud name. */
 export function imageSourceOf(
   entry: { id: string; imageUrl?: string },
@@ -105,12 +122,16 @@ function columnSource(raw: string): ImageSource {
     };
   }
 
-  return {
-    kind: "source",
-    url: url.href,
-    origin: "column",
-    host: url.hostname === "res.cloudinary.com" ? "cloudinary" : "other",
-  };
+  if (url.hostname === "res.cloudinary.com") {
+    return {
+      kind: "source",
+      url: cloudinaryLinkAsJpg(url),
+      origin: "column",
+      host: "cloudinary",
+    };
+  }
+
+  return { kind: "source", url: url.href, origin: "column", host: "other" };
 }
 
 export function imageSlug(id: string): string {
