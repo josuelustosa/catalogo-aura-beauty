@@ -514,14 +514,34 @@ Os números `#01`–`#37` são **referências internas deste plano** — o GitHu
 
 ## 12. Fora do escopo do V1
 
-| Item                                           | Por quê                                                                                                                                                         |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Painel admin (POST na planilha)                | A planilha **é** o painel — a consultora edita pelo app do Sheets no celular. Só vale construir quando houver dor real                                          |
-| Página de detalhe do produto                   | O fluxo termina no WhatsApp; uma rota por produto multiplicaria o build sem destino de conversão novo                                                           |
-| Listagem seccionada por marca (`groupByBrand`) | Backlog antigo sem decisão de UX; convive mal com a busca. Fica para depois do site no ar                                                                       |
-| Analytics / pixel                              | Decidir depois do domínio; envolve consentimento e custo de performance                                                                                         |
-| Carrinho, checkout, autenticação               | Não faz parte do modelo de negócio                                                                                                                              |
-| Code splitting / `route.lazy`                  | **Proibido enquanto houver SSG**: `lazy` força `initialized = false` no cliente e renderiza o fallback, causando mismatch. Com 30 produtos não há o que dividir |
+| Item                                           | Por quê                                                                                                                                                           |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Painel admin / troca da origem para Supabase   | A planilha **é** o painel — a consultora edita pelo app do Sheets no celular. Avaliado em 2026-10-07 (abaixo): só vale com um dos gatilhos, e direto no plano Pro |
+| Página de detalhe do produto                   | O fluxo termina no WhatsApp; uma rota por produto multiplicaria o build sem destino de conversão novo                                                             |
+| Listagem seccionada por marca (`groupByBrand`) | Backlog antigo sem decisão de UX; convive mal com a busca. Fica para depois do site no ar                                                                         |
+| Analytics / pixel                              | Decidir depois do domínio; envolve consentimento e custo de performance                                                                                           |
+| Carrinho, checkout, autenticação               | Não faz parte do modelo de negócio                                                                                                                                |
+| Code splitting / `route.lazy`                  | **Proibido enquanto houver SSG**: `lazy` força `initialized = false` no cliente e renderiza o fallback, causando mismatch. Com 30 produtos não há o que dividir   |
+
+### 12.1 Painel admin e Supabase — avaliado em 2026-10-07
+
+Trocar Planilha + Cloudinary pelo Supabase **não é trocar só o Storage**: o Storage faz o papel do Cloudinary, mas título, preço, marca e `ativo` exigem uma tabela no Postgres e uma tela para a consultora editar. O dashboard do Supabase não serve para ela (conta de membro vê as chaves e apaga tabelas). Então a troca é **Database + Storage + Auth + um painel admin novo**.
+
+|                   | Estimativa                                                                                                                                                                                                             |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Esforço           | **80–124 h** (≈ 2 a 3 semanas em tempo integral); o painel sozinho é 40–64 h                                                                                                                                           |
+| Código descartado | ~⅓ do S1 e do S2: `apps-script/Code.gs`, a leitura e a validação da planilha, a normalização do Drive e a URL derivada do Cloudinary. Ficam o pipeline do `sharp`, o manifesto, o `<Picture>` e o site público inteiro |
+| Custo recorrente  | **US$ 25/mês (Pro)**. O Free pausa o projeto após 1 semana sem uso (o build de publicação falha até alguém despausar), não tem backup e não converte formato (HEIC precisaria virar JPEG no navegador)                 |
+| Manutenção        | Mais simples para a consultora (uma tela, com upload); maior e mais sensível para o dev: auth, RLS e policies do bucket, migrations, Edge Function do Deploy Hook, separação preview × produção                        |
+
+**Decisão:** seguir com a planilha e o Cloudinary no V1. Reavaliar quando aparecer um destes gatilhos:
+
+1. a consultora, depois de algumas semanas de uso real, rejeita o fluxo planilha + Cloudinary (nome do arquivo = id é o ponto mais provável);
+2. mais de uma pessoa editando, com permissões diferentes;
+3. dado que precisa mudar sem rebuild (estoque, pedidos);
+4. catálogo na casa dos milhares de itens.
+
+Se vier, migrar direto para o Pro, como milestone próprio **depois do S3**. Como a leitura continua no build, o site público praticamente não muda: a troca fica contida em `scripts/` e no painel. Preços conferidos em supabase.com/pricing na data da avaliação.
 
 ---
 
