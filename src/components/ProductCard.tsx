@@ -1,15 +1,15 @@
-import Picture from "../../components/Picture";
-import { IMAGES } from "../../data/images.generated";
-import type { Product } from "../../types/product.type";
-import { formatPrice } from "../../utils/format-price";
-import { buildWhatsAppLink } from "../../utils/whatsapp";
+import Picture from "./Picture";
+import { IMAGES } from "../data/images.generated";
+import type { Product } from "../types/product.type";
+import { formatPrice } from "../utils/format-price";
+import { buildWhatsAppLink } from "../utils/whatsapp";
 
-type CatalogCardProps = {
+type ProductCardProps = {
   product: Product;
   priority?: boolean;
 };
 
-function CatalogCard({ product, priority = false }: CatalogCardProps) {
+function ProductCard({ product, priority = false }: ProductCardProps) {
   const hasPromo = product.promoPrice !== undefined;
   const displayPrice = product.promoPrice ?? product.price;
   const image = product.imageKey ? IMAGES[product.imageKey] : undefined;
@@ -66,4 +66,4 @@ function CatalogCard({ product, priority = false }: CatalogCardProps) {
   );
 }
 
-export default CatalogCard;
+export default ProductCard;
