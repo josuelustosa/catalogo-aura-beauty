@@ -9,7 +9,8 @@ function Footer() {
   return (
     <footer className="mt-auto bg-primary text-text-inverse">
       <Container>
-        <div className="flex flex-col items-center gap-6 pt-10 pb-7 text-center">
+        {/* pb-24 no celular: o botão flutuante não cobre o copyright. */}
+        <div className="flex flex-col items-center gap-6 pt-10 pb-24 text-center lg:pb-7">
           <Link
             to="/"
             className="rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"

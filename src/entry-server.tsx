@@ -12,7 +12,7 @@ import { createAppRoutes } from "./router/tree";
 export { renderBodyEnd, renderHead } from "./seo/render-head";
 export { getRouteMeta, PRERENDER_PATHS } from "./seo/route-meta";
 export { describePage } from "./ssg/page-expectations";
-export { WHATSAPP_NUMBER } from "./utils/whatsapp";
+export { PRODUCT_MESSAGE_PREFIX, WHATSAPP_NUMBER } from "./utils/whatsapp";
 
 const RENDER_TIMEOUT_MS = 10_000;
 

@@ -16,4 +16,5 @@ export type EntryServer = {
   renderBodyEnd(route: RouteMeta): string;
   PRERENDER_PATHS: readonly string[];
   WHATSAPP_NUMBER: string;
+  PRODUCT_MESSAGE_PREFIX: string;
 };

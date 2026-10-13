@@ -8,6 +8,8 @@ export type PageCheck = {
   fragment: string;
   expectation: PageExpectation;
   whatsappNumber: string;
+  /** Início da mensagem do "Comprar agora": distingue o link de produto do genérico. */
+  productMessagePrefix: string;
   /** Arquivos que existem em dist/img. */
   imageFiles: ReadonlySet<string>;
   production: boolean;
@@ -101,9 +103,15 @@ export function checkPage(check: PageCheck): CheckResult {
     (check.production ? errors : warnings).push(message);
   } else if (
     expectation.hasProducts &&
-    !fragment.includes(`wa.me/${whatsappNumber}?text=`)
+    // O botão flutuante e os banners têm link genérico em toda página: só a
+    // mensagem de produto prova que o "Comprar agora" está no HTML.
+    !fragment.includes(
+      `wa.me/${whatsappNumber}?text=${encodeURIComponent(check.productMessagePrefix)}`,
+    )
   ) {
-    errors.push(`catálogo com produtos sem link wa.me/${whatsappNumber}`);
+    errors.push(
+      `produtos sem o link "Comprar agora" (wa.me/${whatsappNumber})`,
+    );
   }
 
   const imagesOf = (html: string) =>
