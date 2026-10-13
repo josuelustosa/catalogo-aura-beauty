@@ -67,6 +67,9 @@
   /* Destaques sólidos */
   --color-surface-highlight: var(--color-bege);
 
+  /* Destaque suave sobre fundo primary (trilho do menu do header) */
+  --color-surface-soft-inverse: rgb(255 225 223 / 10%);
+
   /* ==========================================================================
      TEXT
      ========================================================================== */
@@ -95,7 +98,7 @@
   --color-border: rgb(92 49 45 / 12%);
   --color-divider: rgb(92 49 45 / 16%);
 
-  /* Linha sobre fundo primary (footer, moldura da arte do hero) */
+  /* Linha sobre fundo primary (footer, arte do hero, trilho do menu) */
   --color-divider-inverse: rgb(255 225 223 / 24%);
 
   /* ==========================================================================
@@ -103,6 +106,7 @@
      ========================================================================== */
 
   --color-hover-overlay: rgb(133 71 66 / 8%);
+  --color-hover-overlay-inverse: rgb(255 225 223 / 12%);
   --color-active-overlay: rgb(133 71 66 / 16%);
   --color-focus-ring: rgb(133 71 66 / 35%);
 

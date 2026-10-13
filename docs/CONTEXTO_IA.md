@@ -336,14 +336,18 @@ Use sempre o token semântico, nunca a cor crua: `text-text-secondary` e não
   tokens semânticos;
 - **semânticos**: `primary`, `primary-hover`, `accent`, `background`, `surface`,
   `surface-soft`, `surface-highlight`, `text`, `text-secondary`, `text-inverse`,
-  `text-brand`, `border`, `divider`, `divider-inverse` (linha sobre
-  `primary`), `focus-ring`, `hover-overlay`, `active-overlay`;
+  `text-brand`, `border`, `divider`, `focus-ring`, `hover-overlay`,
+  `active-overlay`; sobre fundo `primary`, as versões `-inverse`:
+  `divider-inverse` (linha), `surface-soft-inverse` (trilho do menu) e
+  `hover-overlay-inverse`;
 - **layout**: `max-w-page` (80rem, grid de 4 cards) e `max-w-narrow` (48rem,
-  páginas de leitura), aplicados via `<Container>`.
+  páginas de leitura), aplicados via `<Container>`. Exceção: o Header usa
+  `max-w-page` sem o padding, para o trilho do menu rolar até a borda da tela.
 
-Padrões visuais em uso: foco com `focus-visible:ring-2 ring-focus-ring`,
-feedback de clique com `active:scale-95`, cards em `rounded-lg border-border
-bg-surface shadow-sm`, imagens `aspect-square` com `loading="lazy"`.
+Padrões visuais em uso: foco com `focus-visible:ring-2 ring-focus-ring` (sobre
+`primary`, `focus-visible:outline-2 outline-accent`), feedback de clique com
+`active:scale-95`, cards em `rounded-lg border-border bg-surface shadow-sm`,
+imagens `aspect-square` com `loading="lazy"`.
 
 ### Tipografia
 
@@ -392,6 +396,8 @@ Implementado e verificado (`tsc -b` e `vite build` passam):
   funciona com as formas de entrega, banners e FAQ; footer e botão flutuante de
   WhatsApp em todas as rotas; banners no fim de cada catálogo (o do Instagram
   só com `VITE_INSTAGRAM_URL`);
+- header com o menu num trilho de pílulas (frame "Header C" do canvas):
+  centralizado no desktop e rolável no celular;
 - erro de render cai em `RouteErrorBoundary` (dentro do layout) ou em
   `RootErrorBoundary` (o layout lançou), nunca na página padrão do
   react-router, que mostra o stack. No prerender os boundaries não atuam: o

@@ -24,7 +24,7 @@ function FeaturedProducts() {
         />
 
         {/* No celular, fila rolável em que o próximo card aparece; no desktop, grade. */}
-        <ul className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pt-1 pb-2 [scrollbar-width:none] lg:mx-0 lg:grid lg:grid-cols-4 lg:overflow-visible lg:px-0">
+        <ul className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pt-1 pb-2 scrollbar-none lg:mx-0 lg:grid lg:grid-cols-4 lg:overflow-visible lg:px-0">
           {products.map((product) => (
             <li
               key={product.id}

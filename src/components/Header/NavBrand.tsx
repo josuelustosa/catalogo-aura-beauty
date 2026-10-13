@@ -1,20 +1,19 @@
 import { Link } from "react-router";
 
 function NavBrand() {
-  const logoTitle =
-    "Logo Catálogo Aura Beauty | Produtos à pronta-entrega em Manaus";
-
   return (
-    <>
-      <Link to="/">
-        <img
-          src="/logo-aura-beauty.svg"
-          alt={logoTitle}
-          className="m-auto h-18 w-auto lg:h-22"
-          title={logoTitle}
-        />
-      </Link>
-    </>
+    <Link
+      to="/"
+      className="block rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+    >
+      <img
+        src="/logo-aura-beauty.svg"
+        alt="Aura Beauty, ir para o início"
+        width={85}
+        height={68}
+        className="h-[clamp(60px,4.6vw,68px)] w-auto"
+      />
+    </Link>
   );
 }
 
