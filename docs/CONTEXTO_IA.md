@@ -79,7 +79,9 @@ apps-script/
 consultora/
 └── GUIA_DA_PLANILHA.md        # guia não técnico de uso da planilha
 public/
-└── img/                       # fotos emitidas pelo build; gitignorado
+├── ilustracoes/               # ilustrações de "Como funciona" (Home)
+├── img/                       # fotos emitidas pelo build; gitignorado
+└── rosa-aura-beauty.png       # rosa do logo, usada como máscara nos banners
 scripts/
 ├── atomic-write.ts            # grava por temporário + rename
 ├── build-data.ts              # orquestra: planilha → imagens → gerados
@@ -93,10 +95,17 @@ src/
 ├── entry-server.tsx           # renderiza uma rota em HTML no Node (prerender)
 ├── main.tsx                   # hidrata ou renderiza, conforme a guarda de rota
 ├── components/                # UI compartilhada entre páginas
+│   ├── ContactBanners/        # banners de WhatsApp e Instagram (HTML, não imagem)
 │   ├── Container.tsx          # larguras "default" (80rem) e "narrow" (48rem)
 │   ├── EmptyState.tsx         # mensagem + saída para qualquer estado vazio
+│   ├── Footer/
 │   ├── Header/
-│   └── Picture.tsx            # <picture> AVIF/WebP lendo o manifesto
+│   ├── icons/                 # glifos reaproveitados (WhatsApp)
+│   ├── Picture.tsx            # <picture> AVIF/WebP lendo o manifesto
+│   ├── ProductCard.tsx        # card de produto, do catálogo e dos destaques
+│   └── WhatsAppFab.tsx        # botão fixo de WhatsApp, em todas as rotas
+├── content/
+│   └── faq.ts                 # perguntas da Home; editar aqui, não no JSX
 ├── data/
 │   ├── images.generated.ts    # manifesto de fotos; gerado, gitignorado
 │   ├── products.generated.ts  # gerado no build; gitignorado, não edite
@@ -107,12 +116,13 @@ src/
 ├── mocks/
 │   └── nav-item.mock.ts       # itens do menu + helpers de catálogo
 ├── pages/
-│   ├── Home.tsx
+│   ├── Home/                  # hero, destaques, como funciona e FAQ
 │   ├── CatalogHome.tsx        # /catalogo sem slug: seletor de catálogos
 │   ├── NotFound.tsx           # rota "*"
 │   └── Catalog/               # página + componentes exclusivos dela
 ├── router/
 │   ├── index.tsx              # createBrowserRouter (toca window)
+│   ├── RouteErrorBoundary.tsx # telas de erro, sem stack
 │   └── tree.tsx               # árvore única de rotas, do cliente e do SSG
 ├── seo/                       # metadados, <head> e JSON-LD por rota
 ├── services/
@@ -126,8 +136,8 @@ Os testes vivem ao lado do código (`*.test.ts` em `scripts/` e `src/`).
 
 Convenção de pastas: componente usado por mais de uma página vai em
 `components/`; componente exclusivo de uma página vive na pasta daquela página
-(`pages/Catalog/CatalogCard.tsx`). Página com subcomponentes vira pasta com
-`index.tsx`.
+(`pages/Catalog/CatalogGrid.tsx`, `pages/Home/SectionHeading.tsx`). Página com
+subcomponentes vira pasta com `index.tsx`.
 
 ---
 
@@ -302,7 +312,8 @@ explícita, isso apagaria os literais.
 ## Integração com WhatsApp
 
 `utils/whatsapp.ts` monta `https://wa.me/<numero>?text=<mensagem>` com o título
-do produto na mensagem. O número vem de `VITE_WHATSAPP_NUMBER`, em formato
+do produto na mensagem; sem título (botão flutuante, hero e banner), a mensagem
+é genérica. O número vem de `VITE_WHATSAPP_NUMBER`, em formato
 internacional só com dígitos (`5511999999999`).
 
 Sem a variável, o link ainda abre o WhatsApp com a mensagem pronta, deixando o
@@ -325,8 +336,8 @@ Use sempre o token semântico, nunca a cor crua: `text-text-secondary` e não
   tokens semânticos;
 - **semânticos**: `primary`, `primary-hover`, `accent`, `background`, `surface`,
   `surface-soft`, `surface-highlight`, `text`, `text-secondary`, `text-inverse`,
-  `text-brand`, `border`, `divider`, `focus-ring`, `hover-overlay`,
-  `active-overlay`;
+  `text-brand`, `border`, `divider`, `divider-inverse` (linha sobre
+  `primary`), `focus-ring`, `hover-overlay`, `active-overlay`;
 - **layout**: `max-w-page` (80rem, grid de 4 cards) e `max-w-narrow` (48rem,
   páginas de leitura), aplicados via `<Container>`.
 
@@ -375,13 +386,21 @@ Implementado e verificado (`tsc -b` e `vite build` passam):
   `<EmptyState>`;
 - HTML pré-renderizado por rota, hidratado no cliente (conferido no Chrome em
   todas as rotas), com `<head>`, JSON-LD, sitemap e robots por ambiente; rota
-  desconhecida responde 404 de verdade.
+  desconhecida responde 404 de verdade;
+- Home com hero, destaques (coluna `destaque`: fila rolável no celular, grade
+  de quatro no desktop; a seção some sem nenhum), como
+  funciona com as formas de entrega, banners e FAQ; footer e botão flutuante de
+  WhatsApp em todas as rotas; banners no fim de cada catálogo (o do Instagram
+  só com `VITE_INSTAGRAM_URL`);
+- erro de render cai em `RouteErrorBoundary` (dentro do layout) ou em
+  `RootErrorBoundary` (o layout lançou), nunca na página padrão do
+  react-router, que mostra o stack. No prerender os boundaries não atuam: o
+  build continua falhando.
 
 O que está aberto — com critérios de aceite — está em
-[PLANO_DEFINITIVO_V1.md](./PLANO_DEFINITIVO_V1.md). Em resumo: `Home.tsx` ainda
-placeholder (a `<h1>` "Página Inicial" é indexada até o S4), sem footer nem
-botão flutuante. A identidade Aura Beauty (S0), a Planilha Google com testes
-(S1), o pipeline de imagens (S2) e o SSG com SEO técnico (S3) já foram
+[PLANO_DEFINITIVO_V1.md](./PLANO_DEFINITIVO_V1.md). Em resumo: as seções
+Catálogos e Marcas da Home estão em definição, e o FAQ espera as respostas de
+originalidade, pagamento e troca. S0 a S3 e a maior parte do S4 já foram
 entregues; as fotos reais dependem da consultora subir os arquivos no
 Cloudinary.
 

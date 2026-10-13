@@ -277,13 +277,13 @@ A troca de nome tem superfície pequena no código: 7 ocorrências em 6 arquivos
 
 **Assets a produzir** (entrada do usuário, não do código):
 
-| Asset               | Formato                          | Uso                       |
-| ------------------- | -------------------------------- | ------------------------- |
-| Logo principal      | SVG otimizado (SVGO, < 10 KB)    | Header e footer           |
-| Favicon             | SVG + `favicon.ico` 32×32        | Aba do navegador          |
-| Apple touch icon    | PNG 180×180                      | iOS                       |
-| Imagem de OG        | PNG/JPG 1200×630                 | Compartilhamento em redes |
-| Banners do catálogo | 2× 480×160 (WhatsApp, Instagram) | Seção fixa (§6)           |
+| Asset               | Formato                       | Uso                       |
+| ------------------- | ----------------------------- | ------------------------- |
+| Logo principal      | SVG otimizado (SVGO, < 10 KB) | Header e footer           |
+| Favicon             | SVG + `favicon.ico` 32×32     | Aba do navegador          |
+| Apple touch icon    | PNG 180×180                   | iOS                       |
+| Imagem de OG        | PNG/JPG 1200×630              | Compartilhamento em redes |
+| Banners do catálogo | HTML/CSS, sem arte (S4)       | Seção fixa (§6)           |
 
 > O PNG atual do logo tem 40 KB e o SVG órfão tem 54 KB — ambos saem. Um SVG limpo fica entre 3 e 8 KB e serve as duas aplicações.
 
@@ -297,15 +297,17 @@ O repositório é renomeado para `catalogo-aura-beauty` com `gh repo rename`; o 
 
 ## 6. Escopo de UI
 
-| #   | Entrega                         | Detalhe                                                                                                                                                              |
-| --- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **Home**                        | Hero com `<h1>` local · busca global sobre todos os produtos · os 5 catálogos · destaques (coluna `destaque`) · como funciona · área de entrega · FAQ em `<details>` |
-| 2   | **Footer**                      | Barra marrom, logo centralizado, copyright e crédito de desenvolvimento, em todas as rotas — hoje ausente do `App.tsx`                                               |
-| 3   | **Botão flutuante de WhatsApp** | `position: fixed`, sem impacto em CLS, com `aria-label` descritivo                                                                                                   |
-| 4   | **Banners fixos no catálogo**   | Dois blocos 480×160 no rodapé de cada catálogo: contato e Instagram. Os links vêm de env — por isso depende de §7                                                    |
-| 5   | **Busca em `?q=`**              | O termo passa a viver na URL: torna a busca compartilhável e habilita o `SearchAction` do JSON-LD                                                                    |
+| #   | Entrega                         | Detalhe                                                                                                                                                            |
+| --- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | **Home**                        | Hero com `<h1>` local · destaques (coluna `destaque`) · catálogos e marcas (em definição) · como funciona, com as formas de entrega · banners · FAQ em `<details>` |
+| 2   | **Footer**                      | Barra marrom, logo centralizado, copyright e crédito de desenvolvimento, em todas as rotas                                                                         |
+| 3   | **Botão flutuante de WhatsApp** | `position: fixed`, sem impacto em CLS, com `aria-label` descritivo                                                                                                 |
+| 4   | **Banners fixos no catálogo**   | Dois blocos 480×160 em HTML/CSS no fim de cada catálogo e na Home: WhatsApp e Instagram. O do Instagram só aparece com `VITE_INSTAGRAM_URL`                        |
+| 5   | **Busca em `?q=`**              | O termo passa a viver na URL: torna a busca compartilhável e habilita o `SearchAction` do JSON-LD                                                                  |
 
-O `CatalogCard` atual já bate com o Figma (marca em eyebrow, título em negrito, preço riscado + promocional, CTA em pílula). Os ajustes são o fundo `surface-soft` na área de texto, as imagens reais e o contador ("Exibindo **12** produtos de **12**").
+O card de produto (`components/ProductCard.tsx`, usado no catálogo e nos destaques) segue o design do S4: marca com reticências, título em duas linhas, linha do preço riscado sempre reservada e CTA de 44 px.
+
+> **Fonte de verdade da UI no S4:** o canvas do Claude Design "home-teste-ab". Ele tirou a busca global e a seção "Área de entrega" da Home (a entrega foi para "Como funciona") e definiu os banners em HTML, não como imagem.
 
 ---
 
@@ -495,6 +497,8 @@ Os números `#01`–`#37` são **referências internas deste plano** — o GitHu
 | 31  | `feat(catalog): ajusta o catálogo ao layout do Figma` | `ui`       | 13      | Área de texto do card em `surface-soft`; divisores; contador "Exibindo **12** produtos de **12**"; busca alinhada ao título no desktop                           |
 | 32  | `feat(router): adiciona error boundary de rota`       | `ui`       | 15      | `RouteErrorBoundary` implementado e ligado ao `errorElement` (hoje comentado em `router/index.tsx:6,22`), reaproveitando `EmptyState`                            |
 
+> **Desvios do S4** (detalhe em cada issue): banners em HTML/CSS, sem `public/banners/`; card mantém a área de texto branca (o canvas do S4 é mais novo que o Figma); dois `errorElement`, na rota `/` e na raiz, porque a página padrão do react-router mostra o stack; a Home fica sem busca global e sem as seções Catálogos e Marcas, que estão em definição; os destaques são uma fila rolável no celular, como no canvas, mas viram grade de quatro colunas no desktop, onde a fila com a barra de rolagem escondida esconderia o quinto destaque de quem usa só o mouse.
+
 ### S5 · Fechamento
 
 | #   | Título                                                     | Labels          | Depende | Critérios de aceite                                                                                                                                                                                                                                                                           |
@@ -571,9 +575,13 @@ Bloqueiam issues específicas e não dependem de código:
 
 - [ ] Logo definitivo do Aura Beauty em vetor → #02
 - [ ] Domínio escolhido e comprado → #34
-- [ ] Número de WhatsApp de produção e URL do Instagram → #04, #30
+- [x] Número de WhatsApp de produção → #04
+- [ ] URL do Instagram (`VITE_INSTAGRAM_URL` na Vercel) → #30
 - [x] Conta gratuita no Cloudinary criada, `cloud_name` anotado e pasta `aura-beauty/produtos` criada (§4.6) → #12
 - [ ] Fotos dos produtos subidas, **nomeadas com o `id` do produto** → #12
-- [ ] Artes dos dois banners 480×160 → #30
-- [ ] Área de entrega em Manaus e prazos, para a Home e o JSON-LD → #28
+- [x] ~~Artes dos dois banners 480×160~~ — banners em HTML/CSS (S4), sem arte
+- [x] Formas de entrega em Manaus, na seção "Como funciona" da Home → #28
+- [ ] Prazos de entrega, para o FAQ ("Em quanto tempo eu recebo?") e o JSON-LD → #28
+- [ ] Respostas do FAQ: originalidade, formas de pagamento e troca → #28
+- [ ] Definição das seções Catálogos e Marcas da Home → #28
 - [ ] Google Business Profile criado e verificado — fora do código, e a maior alavanca de SEO local → §8
