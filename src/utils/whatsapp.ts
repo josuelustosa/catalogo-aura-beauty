@@ -6,10 +6,14 @@
  */
 export const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER ?? "";
 
-export function buildWhatsAppLink(productTitle: string): string {
-  const text = encodeURIComponent(
-    `Olá! Tenho interesse neste produto do catálogo: ${productTitle}`,
-  );
+const GENERIC_MESSAGE =
+  "Olá! Vim pelo catálogo da Aura Beauty e quero tirar uma dúvida.";
 
-  return `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`;
+/** Sem produto, a mensagem é genérica: botão flutuante, banners e hero. */
+export function buildWhatsAppLink(productTitle?: string): string {
+  const message = productTitle
+    ? `Olá! Tenho interesse neste produto do catálogo: ${productTitle}`
+    : GENERIC_MESSAGE;
+
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 }
