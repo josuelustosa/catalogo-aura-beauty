@@ -3,11 +3,18 @@ type SectionHeadingProps = {
   id: string;
   title: string;
   subtitle?: string;
+  /** Sem linha quando o conteúdo já começa com uma (o FAQ). */
+  divider?: boolean;
 };
 
-function SectionHeading({ id, title, subtitle }: SectionHeadingProps) {
+function SectionHeading({
+  id,
+  title,
+  subtitle,
+  divider = true,
+}: SectionHeadingProps) {
   return (
-    <div className="mb-6 border-b border-divider pb-4">
+    <div className={divider ? "mb-6 border-b border-divider pb-4" : "mb-4"}>
       <h2
         id={id}
         className="font-display text-[clamp(28px,1.25rem+1vw,36px)] leading-[1.15] font-normal text-text-brand"
