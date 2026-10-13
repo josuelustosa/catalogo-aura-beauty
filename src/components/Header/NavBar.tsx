@@ -1,12 +1,23 @@
+import { useRef } from "react";
 import { NavLink } from "react-router";
+
+import { useNavTrackScroll } from "../../hooks/use-nav-track-scroll";
 import { NAV_ITEMS } from "../../mocks/nav-item.mock";
 
+// transition (não -all): peso e borda mudam na hora, e o hook mede o tamanho final.
 const linkClassName =
-  "flex min-h-11 items-center whitespace-nowrap rounded-full px-4.5 text-[15px] leading-5 transition-all active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+  "flex min-h-11 items-center whitespace-nowrap rounded-full px-4.5 text-[15px] leading-5 transition active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
 function NavBar() {
+  const navRef = useRef<HTMLElement>(null);
+  const handleFocus = useNavTrackScroll(navRef);
+
   return (
     <nav
+      ref={navRef}
+      // O Firefox faz do trilho rolável uma parada extra no Tab; as pílulas já bastam.
+      tabIndex={-1}
+      onFocus={handleFocus}
       aria-label="Navegação principal"
       // Barra escondida no toque; com mouse, fina abaixo do lg, onde o trilho transborda.
       className="w-full overflow-x-auto overflow-y-hidden px-4 scrollbar-none max-lg:pointer-fine:scrollbar-thin max-lg:pointer-fine:scrollbar-thumb-accent max-lg:pointer-fine:scrollbar-track-transparent sm:px-6 lg:px-8"

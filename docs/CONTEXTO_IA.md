@@ -112,6 +112,7 @@ src/
 │   └── products.mock.ts       # fixture de fallback e de teste
 ├── hooks/
 │   ├── use-debounced-value.ts
+│   ├── use-nav-track-scroll.ts # trilho do menu segue a página atual e o foco
 │   └── use-route-meta.ts      # título/description/canonical na navegação SPA
 ├── mocks/
 │   └── nav-item.mock.ts       # itens do menu + helpers de catálogo
@@ -397,7 +398,8 @@ Implementado e verificado (`tsc -b` e `vite build` passam):
   WhatsApp em todas as rotas; banners no fim de cada catálogo (o do Instagram
   só com `VITE_INSTAGRAM_URL`);
 - header com o menu num trilho de pílulas (frame "Header C" do canvas):
-  centralizado no desktop e rolável no celular;
+  centralizado no desktop e rolável no celular, onde acompanha a página atual
+  e o foco do teclado (`useNavTrackScroll`);
 - erro de render cai em `RouteErrorBoundary` (dentro do layout) ou em
   `RootErrorBoundary` (o layout lançou), nunca na página padrão do
   react-router, que mostra o stack. No prerender os boundaries não atuam: o
