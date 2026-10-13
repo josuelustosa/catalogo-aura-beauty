@@ -1,13 +1,17 @@
 import { Suspense } from "react";
 import { Outlet } from "react-router";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { render, renderWithRoutes } from "./entry-server";
 import { CATALOG_NAV_ITEMS } from "./mocks/nav-item.mock";
 import RouteErrorBoundary, {
   RootErrorBoundary,
 } from "./router/RouteErrorBoundary";
-import { getCatalogBySlug } from "./services/catalog.service";
+import {
+  getCatalogBySlug,
+  getFeaturedProducts,
+} from "./services/catalog.service";
+import { HOME_HEADING } from "./ssg/page-expectations";
 import { formatPrice } from "./utils/format-price";
 
 const ROUTES = [
@@ -18,6 +22,10 @@ const ROUTES = [
 ];
 
 describe("entry-server", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("roda no Node, sem window", () => {
     expect(typeof window).toBe("undefined");
   });
@@ -27,6 +35,8 @@ describe("entry-server", () => {
 
     expect(html).toContain("<header");
     expect(html).toContain("<main>");
+    expect(html).toContain("<footer");
+    expect(html).toContain('aria-label="Falar com a Aura Beauty no WhatsApp"');
     expect(html).not.toContain("Carregando");
     expect(html).not.toContain("<!--$!-->");
     expect(html).not.toContain("<!--$?-->");
@@ -45,6 +55,37 @@ describe("entry-server", () => {
     expect(html).toContain(product.title);
     expect(html).toContain(formatPrice(product.promoPrice ?? product.price));
     expect(html).toContain('aria-current="page"');
+  });
+
+  it("entrega a home com a h1 local e os destaques", async () => {
+    const html = await render("/");
+    const featured = getFeaturedProducts();
+
+    expect(html.match(/<h1[\s>]/g)).toHaveLength(1);
+    expect(html.replace(/<[^>]+>/g, "")).toContain(HOME_HEADING);
+    expect(featured.length).toBeGreaterThan(0);
+    for (const product of featured) {
+      expect(html).toContain(product.title);
+    }
+    expect(html).toMatch(/<details[^>]* open=""/);
+  });
+
+  it("so mostra o banner do Instagram com a URL configurada", async () => {
+    const renderWith = async (url: string) => {
+      vi.resetModules();
+      vi.stubEnv("VITE_INSTAGRAM_URL", url);
+      const entry = await import("./entry-server");
+      return entry.render("/catalogo/moda-intima");
+    };
+
+    const without = await renderWith("");
+    expect(without).toContain("Peça pelo WhatsApp");
+    expect(without).not.toContain("Seguir no Instagram");
+
+    const withUrl = await renderWith("https://www.instagram.com/aura.beauty/");
+    expect(withUrl).toContain("Seguir no Instagram");
+    expect(withUrl).toContain("@aura.beauty");
+    expect(withUrl).toContain('href="https://www.instagram.com/aura.beauty/"');
   });
 
   it("falha quando um componente lanca, em vez de gravar o fallback", async () => {
