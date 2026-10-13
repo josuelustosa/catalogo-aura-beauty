@@ -1,8 +1,12 @@
 import { Suspense } from "react";
+import { Outlet } from "react-router";
 import { describe, expect, it } from "vitest";
 
 import { render, renderWithRoutes } from "./entry-server";
 import { CATALOG_NAV_ITEMS } from "./mocks/nav-item.mock";
+import RouteErrorBoundary, {
+  RootErrorBoundary,
+} from "./router/RouteErrorBoundary";
 import { getCatalogBySlug } from "./services/catalog.service";
 import { formatPrice } from "./utils/format-price";
 
@@ -58,5 +62,53 @@ describe("entry-server", () => {
     await expect(
       renderWithRoutes([{ path: "/", element: inSuspense }], "/"),
     ).rejects.toThrow("falha ao renderizar /: Error: quebrou");
+  });
+
+  it("continua falhando com os error boundaries ligados", async () => {
+    function Broken(): never {
+      throw new Error("quebrou");
+    }
+
+    // O renderizador de servidor ignora boundaries: o erro chega ao onError.
+    const routes = [
+      {
+        element: <Outlet />,
+        errorElement: <RootErrorBoundary />,
+        children: [
+          {
+            path: "/",
+            errorElement: <RouteErrorBoundary />,
+            element: (
+              <Suspense fallback={<div>Carregando...</div>}>
+                <Broken />
+              </Suspense>
+            ),
+          },
+        ],
+      },
+    ];
+
+    await expect(renderWithRoutes(routes, "/")).rejects.toThrow(
+      "falha ao renderizar /: Error: quebrou",
+    );
+  });
+
+  it("falha quando o proprio layout lanca, em vez de gravar o RootErrorBoundary", async () => {
+    function BrokenLayout(): never {
+      throw new Error("layout quebrou");
+    }
+
+    // Fora de <Suspense>, o erro rejeita o prerender direto.
+    const routes = [
+      {
+        element: <BrokenLayout />,
+        errorElement: <RootErrorBoundary />,
+        children: [{ path: "/", element: <p>conteudo</p> }],
+      },
+    ];
+
+    await expect(renderWithRoutes(routes, "/")).rejects.toThrow(
+      "layout quebrou",
+    );
   });
 });
