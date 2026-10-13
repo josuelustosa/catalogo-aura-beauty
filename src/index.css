@@ -95,6 +95,9 @@
   --color-border: rgb(92 49 45 / 12%);
   --color-divider: rgb(92 49 45 / 16%);
 
+  /* Linha sobre fundo primary (footer, moldura da arte do hero) */
+  --color-divider-inverse: rgb(255 225 223 / 24%);
+
   /* ==========================================================================
      STATES
      ========================================================================== */
@@ -125,4 +128,13 @@
 
   --default-transition-duration: 200ms;
   --default-transition-timing: ease;
+}
+
+@layer base {
+  /* O footer encosta no fim da tela mesmo em página curta (404, busca vazia). */
+  #root {
+    display: flex;
+    min-height: 100dvh;
+    flex-direction: column;
+  }
 }
