@@ -65,6 +65,11 @@ export function groupByBrand(products: Product[]): CatalogBrandGroup[] {
   return groups;
 }
 
+/** Coluna `destaque` da planilha, na ordem dela; de todos os catálogos. */
+export function getFeaturedProducts(): Product[] {
+  return PRODUCTS.filter((product) => product.featured === true);
+}
+
 /**
  * Orquestra a regra de negócio do catálogo:
  * slug -> item do menu -> marcas do grupo -> produtos daquelas marcas.

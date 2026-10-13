@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Product } from "../types/product.type.ts";
 import {
   getCatalogBySlug,
+  getFeaturedProducts,
   getProductsByBrands,
   groupByBrand,
   searchProducts,
@@ -53,6 +54,17 @@ describe("catalog.service", () => {
 
     expect(groups.map((group) => group.brand)).toEqual(["Eudora", "Boticário"]);
     expect(groups[0].products.map((item) => item.id)).toEqual(["1", "3"]);
+  });
+
+  it("devolve so os destaques, na ordem da planilha", () => {
+    const featured = getFeaturedProducts();
+
+    expect(featured.map((item) => item.title)).toEqual([
+      "Malbec Desodorante Colônia 100ml",
+      "Kit Presente Hidratação Tododia 3 itens",
+      "Colar Ponto de Luz Folheado a Ouro",
+      "Perfume OUI Vanille Eau de Parfum 75ml",
+    ]);
   });
 
   it("retorna null para slug inexistente", () => {
