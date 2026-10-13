@@ -199,6 +199,13 @@ reset precisa ser síncrono; com efeito, o valor já debounced do termo antigo
 ainda seria propagado contra a lista nova e a tela piscaria "nenhum produto
 encontrado". Não troque por `useEffect`.
 
+**O termo vive em `?q=`.** O estado nasce do `q` da URL e um efeito escreve de
+volta o valor já debounced, com `replace` (digitar não empilha histórico). O
+efeito só mexe no `q`, pela forma funcional do `setSearchParams` (a forma de
+objeto apagaria `utm_*`), e sai cedo quando a URL já tem o termo. Como o HTML
+pré-renderizado não tem query, a guarda do `main.tsx` não hidrata URLs com
+`q` (ver Pré-renderização).
+
 O corte de duas colunas do grid é `md` (768px), não `sm` (640px): em portrait de
 tablet o card ainda respira, e a 640px dois cards deixariam título e preço
 apertados.
@@ -248,7 +255,9 @@ dist/index.html (template do build:client) ─────────┤
 - **A guarda de hidratação** (`main.tsx`): `hydrateRoot` só quando
   `<html data-prerender-path>` é igual a `location.pathname`. O `404.html` é
   servido em qualquer caminho desconhecido; hidratá-lo noutra URL daria
-  mismatch. Não "simplifique" para sempre hidratar.
+  mismatch. Também não hidrata quando a URL traz `?q=`: o HTML sai sem filtro
+  e o cliente lê o termo no primeiro render. `utm_*` e outros parâmetros
+  continuam hidratando. Não "simplifique" para sempre hidratar.
 - **`scripts/` não importa `src/**`em runtime** (os imports de`src`não têm
 extensão): o`prerender.ts`consome só o`dist-ssr`, pelo contrato
 `ssg/entry-contract.ts`.
@@ -375,10 +384,6 @@ botão flutuante. A identidade Aura Beauty (S0), a Planilha Google com testes
 (S1), o pipeline de imagens (S2) e o SSG com SEO técnico (S3) já foram
 entregues; as fotos reais dependem da consultora subir os arquivos no
 Cloudinary.
-
-Ao levar a busca para `?q=` (S4), leia o `q` **depois** da hidratação: no
-primeiro render o servidor não tem query string, e qualquer diferença vira
-mismatch.
 
 `groupByBrand` continua sem consumidor: a listagem seccionada por marca foi
 movida para fora do escopo do V1 por falta de decisão de UX — ela convive mal
