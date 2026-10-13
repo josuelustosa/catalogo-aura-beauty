@@ -2,9 +2,8 @@ import { IMAGES } from "../data/images.generated";
 import { CATALOG_NAV_ITEMS } from "../mocks/nav-item.mock";
 import { getCatalogBySlug } from "../services/catalog.service";
 import { imagePath, imageSize } from "../utils/catalog-image";
+import { INSTAGRAM_URL } from "../utils/instagram";
 import { WHATSAPP_NUMBER } from "../utils/whatsapp";
-
-const INSTAGRAM_URL: string = import.meta.env.VITE_INSTAGRAM_URL ?? "";
 
 type Crumb = { name: string; path: string };
 

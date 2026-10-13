@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useParams } from "react-router";
 
+import ContactBanners from "../../components/ContactBanners";
 import Container from "../../components/Container";
 import EmptyState from "../../components/EmptyState";
 import { useDebouncedValue } from "../../hooks/use-debounced-value";
@@ -68,6 +69,8 @@ function CatalogContent({ slug }: CatalogContentProps) {
           </p>
         </>
       )}
+
+      <ContactBanners className="mt-12 mb-16" />
     </Container>
   );
 }
