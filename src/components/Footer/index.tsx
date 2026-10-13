@@ -20,7 +20,7 @@ function Footer() {
               alt="Aura Beauty, ir para o início"
               width={99}
               height={80}
-              className="h-20 w-auto"
+              className="h-18 w-auto lg:h-20"
             />
           </Link>
 

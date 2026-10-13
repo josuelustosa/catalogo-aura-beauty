@@ -9,9 +9,9 @@ function NavBrand() {
       <img
         src="/logo-aura-beauty.svg"
         alt="Aura Beauty, ir para o início"
-        width={85}
-        height={68}
-        className="h-[clamp(60px,4.6vw,68px)] w-auto"
+        width={99}
+        height={80}
+        className="h-18 w-auto lg:h-20"
       />
     </Link>
   );

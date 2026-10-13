@@ -39,9 +39,9 @@ export function RootErrorBoundary() {
         <img
           src="/logo-aura-beauty.svg"
           alt="Aura Beauty"
-          width={89}
-          height={72}
-          className="m-auto h-18 w-auto"
+          width={99}
+          height={80}
+          className="m-auto h-18 w-auto lg:h-20"
         />
       </div>
       <main>
