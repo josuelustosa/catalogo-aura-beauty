@@ -582,6 +582,6 @@ Bloqueiam issues específicas e não dependem de código:
 - [x] ~~Artes dos dois banners 480×160~~ — banners em HTML/CSS (S4), sem arte
 - [x] Formas de entrega em Manaus, na seção "Como funciona" da Home → #28
 - [ ] Prazos de entrega, para o FAQ ("Em quanto tempo eu recebo?") e o JSON-LD → #28
-- [ ] Respostas do FAQ: originalidade, formas de pagamento e troca → #28
+- [x] Respostas do FAQ: originalidade, formas de pagamento e troca → #28
 - [ ] Definição das seções Catálogos e Marcas da Home → #28
 - [ ] Google Business Profile criado e verificado — fora do código, e a maior alavanca de SEO local → §8

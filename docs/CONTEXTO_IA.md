@@ -399,8 +399,7 @@ Implementado e verificado (`tsc -b` e `vite build` passam):
 
 O que está aberto — com critérios de aceite — está em
 [PLANO_DEFINITIVO_V1.md](./PLANO_DEFINITIVO_V1.md). Em resumo: as seções
-Catálogos e Marcas da Home estão em definição, e o FAQ espera as respostas de
-originalidade, pagamento e troca. S0 a S3 e a maior parte do S4 já foram
+Catálogos e Marcas da Home estão em definição. S0 a S3 e a maior parte do S4 já foram
 entregues; as fotos reais dependem da consultora subir os arquivos no
 Cloudinary.
 
