@@ -86,6 +86,12 @@ describe("entry-server", () => {
     expect(withUrl).toContain("Seguir no Instagram");
     expect(withUrl).toContain("@aura.beauty");
     expect(withUrl).toContain('href="https://www.instagram.com/aura.beauty/"');
+
+    // Só o perfil, como costuma ser preenchido na Vercel.
+    const withHandle = await renderWith("aura.beauty");
+    expect(withHandle).toContain(
+      'href="https://www.instagram.com/aura.beauty/"',
+    );
   });
 
   it("falha quando um componente lanca, em vez de gravar o fallback", async () => {

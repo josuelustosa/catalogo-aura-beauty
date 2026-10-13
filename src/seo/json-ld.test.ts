@@ -51,7 +51,7 @@ describe("buildJsonLd", () => {
       }),
     ).toMatchObject({
       telephone: "+5592999999999",
-      sameAs: ["https://instagram.com/aura"],
+      sameAs: ["https://www.instagram.com/aura/"],
     });
 
     const bare = await homeWith({
