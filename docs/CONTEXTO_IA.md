@@ -213,11 +213,12 @@ ainda seria propagado contra a lista nova e a tela piscaria "nenhum produto
 encontrado". Não troque por `useEffect`.
 
 **O termo vive em `?q=`.** O estado nasce do `q` da URL e um efeito escreve de
-volta o valor já debounced, com `replace` (digitar não empilha histórico). O
-efeito só mexe no `q`, pela forma funcional do `setSearchParams` (a forma de
-objeto apagaria `utm_*`), e sai cedo quando a URL já tem o termo. Como o HTML
-pré-renderizado não tem query, a guarda do `main.tsx` não hidrata URLs com
-`q` (ver Pré-renderização).
+volta o valor já debounced, com `replace` (digitar não empilha histórico) e
+`preventScrollReset` (sem ele, o `ScrollRestoration` subiria a página a cada
+termo). O efeito só mexe no `q`, pela forma funcional do `setSearchParams` (a
+forma de objeto apagaria `utm_*`), e sai cedo quando a URL já tem o termo. Como
+o HTML pré-renderizado não tem query, a guarda do `main.tsx` não hidrata URLs
+com `q` (ver Pré-renderização).
 
 O corte de duas colunas do grid é `md` (768px), não `sm` (640px): em portrait de
 tablet o card ainda respira, e a 640px dois cards deixariam título e preço
@@ -405,6 +406,10 @@ Implementado e verificado (`tsc -b` e `vite build` passam):
 - header com o menu num trilho de pílulas (frame "Header C" do canvas):
   centralizado no desktop e rolável no celular, onde acompanha a página atual
   e o foco do teclado (`useNavTrackScroll`);
+- página nova abre no topo, e voltar ou avançar devolvem a rolagem
+  (`ScrollRestoration` no `App`); entrada aberta direto pela URL ganha uma key
+  no histórico (`router/index.tsx`), senão a rolagem de outra página aberta
+  antes na aba seria restaurada no lugar da âncora;
 - erro de render cai em `RouteErrorBoundary` (dentro do layout) ou em
   `RootErrorBoundary` (o layout lançou), nunca na página padrão do
   react-router, que mostra o stack. No prerender os boundaries não atuam: o

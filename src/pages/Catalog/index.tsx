@@ -43,7 +43,8 @@ function CatalogContent({ slug }: CatalogContentProps) {
         }
         return next;
       },
-      { replace: true },
+      // Sem preventScrollReset, o ScrollRestoration subiria a página a cada termo.
+      { replace: true, preventScrollReset: true },
     );
   }, [debouncedSearchTerm, urlTerm, setSearchParams]);
 
