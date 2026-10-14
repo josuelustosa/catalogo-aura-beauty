@@ -109,8 +109,11 @@ function HowItWorks() {
               className="flex flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-sm"
             >
               <div className="flex h-[clamp(200px,20vw,260px)] items-end justify-center bg-surface-soft px-4 pt-4">
+                {/* 196 px é a maior largura exibida: tela DPR 1 leva a de 281. */}
                 <img
                   src={step.image}
+                  srcSet={`${step.image.replace(".webp", "-281.webp")} 281w, ${step.image} 562w`}
+                  sizes="196px"
                   alt={step.alt}
                   width={562}
                   height={700}

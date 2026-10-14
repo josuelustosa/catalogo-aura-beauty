@@ -21,9 +21,6 @@ Romance/Favorita, Moda Íntima, Joias e Acessórios) e cada produto leva a uma
 conversa no WhatsApp com mensagem pré-preenchida. Não há carrinho, checkout,
 autenticação ou back-end próprio.
 
-> O código ainda diz "Consultora Acsa" em alguns pontos. A troca de identidade é
-> a primeira etapa do plano — ver `PLANO_DEFINITIVO_V1.md` §5.
-
 A fonte de dados é uma **Planilha Google**, que devolve uma lista plana com os
 produtos de todas as marcas. `scripts/build-data.ts` a lê **em tempo de build**
 (não em runtime — ver Histórico) e gera `src/data/products.generated.ts`; sem
@@ -54,8 +51,9 @@ JSON-LD, `sitemap.xml` e `robots.txt` gerados, e o cliente hidrata esse HTML.
 Dependências usam **versão exata**, sem `^` ou `~`. Ver
 [dependency-management.md](./dependency-management.md).
 
-Scripts: `npm run dev`, `npm run build`, `npm test`,
-`npm run lint`, `npm run format` e `npm run format:check`. `predev`, `prebuild`
+Scripts: `dev`, `build` (que encadeia `build:client`, `build:ssr` e
+`prerender`), `preview`, `test`, `lint`, `format` e `format:check`; o que cada
+um faz está na tabela do [README](../README.md#scripts). `predev`, `prebuild`
 e `pretest` rodam `scripts/build-data.ts`, que também roda o pipeline de
 imagens (o `pretest` força o fallback do mock, sem imagens, para os testes do
 serviço serem determinísticos). O cache das imagens fica em
@@ -79,7 +77,8 @@ apps-script/
 consultora/
 └── GUIA_DA_PLANILHA.md        # guia não técnico de uso da planilha
 public/
-├── ilustracoes/               # ilustrações de "Como funciona" (Home)
+├── aura-beauty-open-graph-1200x630.jpg # imagem de prévia (seo/og-image.ts)
+├── ilustracoes/               # "Como funciona": <nome>.webp 562 px e <nome>-281
 ├── img/                       # fotos emitidas pelo build; gitignorado
 ├── marcas/                    # logos brancos da seção Marcas (WebP, 400 px)
 └── rosa-aura-beauty.png       # rosa do logo, usada como máscara nos banners
@@ -90,6 +89,7 @@ scripts/
 ├── catalog-data.ts            # parsing e validação da planilha; puro
 ├── catalog-images.ts          # origens, larguras e disjuntor de imagens; puro
 ├── prerender.ts               # grava um HTML por rota a partir do dist-ssr
+├── public-assets.test.ts      # dimensões e peso dos arquivos de public/
 ├── site-files.ts              # sitemap.xml e robots.txt; puro
 └── validate-html.ts           # regras que reprovam o HTML gerado; puro
 src/
@@ -233,7 +233,9 @@ com `If-None-Match`, recorta em quadrado uma vez (`position: "attention"`) e
 emite AVIF q50 e WebP q78 em 320/480/640/960, sem ampliar o original. O
 manifesto guarda só `{ slug, hash, widths }` por id; `utils/catalog-image.ts`
 monta os nomes (`<slug>-<largura>.<hash>.<ext>`) para o build e para o
-`<Picture>`.
+`<Picture>`. O `Product` só carrega esse `imageKey`, nunca a URL de origem: o
+navegador não tem como receber a foto crua do Cloudinary ou do Drive (ver
+Histórico).
 
 Falha de imagem nunca derruba o deploy sozinha: o produto sai sem foto, com
 aviso de linha, id e título, e o original em cache segura a foto quando a
@@ -262,6 +264,12 @@ dist/index.html (template do build:client) ─────────┤
                                                             dist/robots.txt
 ```
 
+- **Duas passagens de build:** `build:client` gera o bundle e o template com
+  os assets hasheados; `build:ssr` compila o `entry-server` para o Node. O
+  `prerender` junta as duas.
+- **Sem `route.lazy`, code splitting nem loaders** enquanto houver SSG: o
+  cliente nasceria sem inicializar e renderizaria o fallback do `<Suspense>`,
+  com mismatch de hidratação (o porquê está no Histórico).
 - **Uma árvore de rotas só** (`router/tree.tsx`), usada pelo
   `createBrowserRouter` e pelo `createStaticHandler`: duas listas divergiriam.
 - **`PRERENDER_PATHS` sai do menu** (`seo/route-meta.ts`): um catálogo novo em
@@ -272,9 +280,10 @@ dist/index.html (template do build:client) ─────────┤
   mismatch. Também não hidrata quando a URL traz `?q=`: o HTML sai sem filtro
   e o cliente lê o termo no primeiro render. `utm_*` e outros parâmetros
   continuam hidratando. Não "simplifique" para sempre hidratar.
-- **`scripts/` não importa `src/**`em runtime** (os imports de`src`não têm
-extensão): o`prerender.ts`consome só o`dist-ssr`, pelo contrato
-`ssg/entry-contract.ts`.
+- **`scripts/` não importa `src/` em runtime** (os imports de `src` não têm
+  extensão): o `prerender.ts` consome só o `dist-ssr`, pelo contrato
+  `ssg/entry-contract.ts`. Teste de `scripts/` pode importar módulo folha de
+  `src/` (como `seo/og-image.ts`), desde que ele não toque `import.meta.env`.
 - **A origem do site** vem de `SITE_URL` ou de `VERCEL_PROJECT_PRODUCTION_URL`,
   resolvida no Node e carimbada em `<html data-site-url>`; só
   `VERCEL_ENV=production` sai indexável.
@@ -375,8 +384,8 @@ sem requisições a serviços externos no navegador:
 - `--font-sans`: **Inter Variable**, somente Latin e eixo de peso normal
   100–900; fonte estrutural da interface, do texto e dos controles;
 - `--font-display`: **DM Serif Display**, somente Latin e peso 400 normal;
-  fonte editorial aplicada explicitamente aos títulos dos catálogos e,
-  futuramente, aos títulos de seção da Home.
+  fonte editorial aplicada explicitamente aos títulos dos catálogos, aos
+  títulos de seção da Home (`SectionHeading`), ao hero e aos banners.
 
 Não aplique a fonte display globalmente aos elementos `h1`–`h3`: títulos de
 produto e demais conteúdos funcionais continuam em Inter. As duas fontes usam
@@ -389,13 +398,17 @@ o componente padroniza mensagem e saída (um `to`, que vira `Link`, **ou** um
 consumi-lo em vez de repetir o layout.
 
 Acessibilidade: SVGs decorativos levam `aria-hidden="true"`; inputs sem label
-visível levam `aria-label`.
+visível levam `aria-label`. Link com texto visível não leva `aria-label`: o
+nome acessível precisa conter o que está escrito (WCAG 2.5.3), e é o texto
+dos banners que os nomeia. O título do card segue o nível da página
+(`headingLevel`): `<h2>` sob o `<h1>` do catálogo, `<h3>` sob o `<h2>` dos
+destaques.
 
 ---
 
 ## Estado atual e pendências conhecidas
 
-Implementado e verificado (`tsc -b` e `vite build` passam):
+Implementado e verificado (`npm run build` passa, com a validação do HTML):
 
 - rota dinâmica `/catalogo/:slug` cobrindo os 5 catálogos;
 - rota `/catalogo` sem slug com seletor de catálogos, em vez da rota `*`;
@@ -426,13 +439,28 @@ Implementado e verificado (`tsc -b` e `vite build` passam):
 - erro de render cai em `RouteErrorBoundary` (dentro do layout) ou em
   `RootErrorBoundary` (o layout lançou), nunca na página padrão do
   react-router, que mostra o stack. No prerender os boundaries não atuam: o
-  build continua falhando.
+  build continua falhando;
+- metas de desempenho do plano (§9) batidas em produção, medidas com o
+  Lighthouse em 2026-10-14 (issue #38): desempenho 97–100, boas práticas e
+  SEO 100, LCP de até 1,9 s no celular, CLS 0 e 106 KB de JS comprimido; a
+  acessibilidade, que dava 98 nos catálogos, foi a 100 com as correções do
+  S5.
 
-O que está aberto — com critérios de aceite — está em
-[PLANO_DEFINITIVO_V1.md](./PLANO_DEFINITIVO_V1.md). Em resumo: a seção
-Catálogos ficou fora da Home no canvas, num frame à parte. S0 a S4 já foram
-entregues; os prazos de entrega do FAQ esperam a consultora (issue #50), e as
-fotos reais dependem de ela subir os arquivos no Cloudinary.
+S0 a S5 foram entregues em tudo o que depende de código. O que continua
+aberto depende de entregas fora dele, com critérios de aceite em
+[PLANO_DEFINITIVO_V1.md](./PLANO_DEFINITIVO_V1.md) §14:
+
+- **domínio próprio** (#37): o código já segue a origem do build; o passo a
+  passo está no [README](../README.md#domínio-próprio);
+- **fotos dos produtos** no Cloudinary: sem elas o JSON-LD de `Product` não
+  passa no Rich Results Test, e a #26 só fecha depois dessa validação;
+- **logo definitivo em vetor**: o `logo-aura-beauty.svg` ainda embute um PNG
+  (48 KB);
+- **Google Business Profile**, fora do código.
+
+Os prazos de entrega não entram no site: são combinados com a consultora pelo
+WhatsApp, como o FAQ já diz (#50, fechada sem implementação). A seção
+Catálogos ficou fora da Home no canvas, num frame à parte.
 
 `groupByBrand` continua sem consumidor: a listagem seccionada por marca foi
 movida para fora do escopo do V1 por falta de decisão de UX — ela convive mal

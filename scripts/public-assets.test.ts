@@ -1,4 +1,4 @@
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
@@ -41,5 +41,27 @@ describe("imagem de Open Graph", () => {
   it("cabe no limite da prévia do WhatsApp", () => {
     // Acima de ~300 KB o WhatsApp mostra o link sem a imagem.
     expect(statSync(file).size).toBeLessThan(300 * 1024);
+  });
+});
+
+describe("ilustrações de Como funciona", () => {
+  const dir = path.join(publicDir, "ilustracoes");
+  const originals = readdirSync(dir).filter((f) => !f.endsWith("-281.webp"));
+
+  // O srcset de HowItWorks.tsx monta <nome>-281.webp a partir do original.
+  it.each(originals)("%s tem 562x700 e a versão de 281 px", async (name) => {
+    const small = path.join(dir, name.replace(".webp", "-281.webp"));
+    const [big, half] = await Promise.all([
+      sharp(path.join(dir, name)).metadata(),
+      sharp(small).metadata(),
+    ]);
+    expect({ width: big.width, height: big.height }).toEqual({
+      width: 562,
+      height: 700,
+    });
+    expect({ width: half.width, height: half.height }).toEqual({
+      width: 281,
+      height: 350,
+    });
   });
 });

@@ -8,9 +8,16 @@ import { buildWhatsAppLink } from "../utils/whatsapp";
 type ProductCardProps = {
   product: Product;
   priority?: boolean;
+  // No catálogo o card fica logo abaixo do <h1>; na Home, sob o <h2> da seção.
+  headingLevel?: 2 | 3;
 };
 
-function ProductCard({ product, priority = false }: ProductCardProps) {
+function ProductCard({
+  product,
+  priority = false,
+  headingLevel = 3,
+}: ProductCardProps) {
+  const Heading = `h${headingLevel}` as const;
   const hasPromo = product.promoPrice !== undefined;
   const displayPrice = product.promoPrice ?? product.price;
   const image = product.imageKey ? IMAGES[product.imageKey] : undefined;
@@ -32,9 +39,9 @@ function ProductCard({ product, priority = false }: ProductCardProps) {
         <p className="truncate text-xs uppercase tracking-wide text-text-secondary">
           {product.brand}
         </p>
-        <h3 className="line-clamp-2 h-14 text-lg font-bold text-text">
+        <Heading className="line-clamp-2 h-14 text-lg font-bold text-text">
           {product.title}
-        </h3>
+        </Heading>
 
         <div className="mt-auto pt-2">
           {/* A linha existe mesmo sem promoção: os preços ficam alinhados na grade. */}

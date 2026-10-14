@@ -13,7 +13,6 @@ function InstagramBanner({ url }: InstagramBannerProps) {
       href={url}
       target="_blank"
       rel="noreferrer"
-      aria-label={`Seguir no Instagram${handle ? ` ${handle}` : ""}: lançamentos e promoções`}
       className="@container relative flex min-h-40 w-full items-center overflow-hidden rounded-lg border border-border bg-accent px-6 py-4.5 text-text shadow-sm transition-all hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       <BannerRose tone="bg-primary opacity-18" />
