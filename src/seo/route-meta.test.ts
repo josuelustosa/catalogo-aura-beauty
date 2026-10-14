@@ -28,7 +28,7 @@ describe("getRouteMeta", () => {
       expect(meta.canonical).toBe(`https://aura.example${path}`);
       expect(meta.robots).toBe("index, follow");
       expect(meta.ogImage).toBe(
-        "https://aura.example/aura-beauty-open-graph-1200x630.png",
+        "https://aura.example/aura-beauty-open-graph-1200x630.jpg",
       );
       titles.add(meta.title);
     }
