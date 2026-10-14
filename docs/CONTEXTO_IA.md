@@ -282,6 +282,9 @@ extensão): o`prerender.ts`consome só o`dist-ssr`, pelo contrato
   nunca pelo hoisting de `<title>` do React 19 (anexaria um segundo).
 - O primeiro card com foto ganha `<link rel="preload">` no `<head>`, com o
   mesmo `imagesrcset`/`imagesizes` do `<Picture>` (`IMAGE_SIZES`).
+- A imagem de Open Graph (`seo/og-image.ts`) é JPEG 1200×630 com menos de
+  300 KB: acima disso o WhatsApp mostra o link sem a imagem. Um teste em
+  `scripts/public-assets.test.ts` barra a regressão.
 
 Armadilhas já resolvidas, que não devem voltar:
 

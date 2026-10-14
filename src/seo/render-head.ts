@@ -1,4 +1,5 @@
 import { serializeJsonLd } from "./json-ld";
+import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH } from "./og-image";
 import { SITE_NAME, type RouteMeta } from "./route-meta";
 
 /** Três rótulos do menu têm "&" cru; sem escape o HTML sai inválido. */
@@ -45,8 +46,8 @@ export function renderHead(route: RouteMeta): string {
   }
   tags.push(
     meta("property", "og:image", route.ogImage),
-    meta("property", "og:image:width", "1200"),
-    meta("property", "og:image:height", "630"),
+    meta("property", "og:image:width", String(OG_IMAGE_WIDTH)),
+    meta("property", "og:image:height", String(OG_IMAGE_HEIGHT)),
     meta("property", "og:image:alt", SITE_NAME),
     meta("name", "twitter:card", "summary_large_image"),
   );

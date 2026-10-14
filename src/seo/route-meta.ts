@@ -4,11 +4,11 @@ import { getCatalogBySlug } from "../services/catalog.service";
 import { IMAGE_SIZES, imageSrcSet } from "../utils/catalog-image";
 import type { RouteMeta, SiteContext } from "../types/route-meta.type";
 import { buildJsonLd } from "./json-ld";
+import { OG_IMAGE_PATH } from "./og-image";
 
 export type { RouteMeta, SiteContext };
 
 export const SITE_NAME = "Aura Beauty";
-export const OG_IMAGE_PATH = "/aura-beauty-open-graph-1200x630.png";
 
 /** Derivado do menu: um catálogo novo vira página pré-renderizada sozinho. */
 export const PRERENDER_PATHS: readonly string[] = [
