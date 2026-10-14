@@ -8,7 +8,6 @@ function WhatsAppBanner() {
       href={buildWhatsAppLink()}
       target="_blank"
       rel="noreferrer"
-      aria-label="Chamar no WhatsApp: tire dúvidas e combine a entrega em Manaus"
       className="@container relative flex min-h-40 w-full items-center overflow-hidden rounded-lg bg-primary px-6 py-4.5 text-text-inverse shadow-sm transition-all hover:bg-primary-hover hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       <BannerRose tone="bg-text-inverse opacity-22" />

@@ -123,6 +123,20 @@ describe("entry-server", () => {
     );
   });
 
+  it("nomeia os banners pelo texto visivel", async () => {
+    vi.resetModules();
+    vi.stubEnv("VITE_INSTAGRAM_URL", "https://www.instagram.com/aura.beauty/");
+    const entry = await import("./entry-server");
+    const html = await entry.render("/");
+
+    // Um aria-label sem o texto visível fere o WCAG 2.5.3 (label in name).
+    const banners = html.match(/<a [^>]*class="@container[^>]*>/g) ?? [];
+    expect(banners).toHaveLength(2);
+    for (const tag of banners) {
+      expect(tag).not.toContain("aria-label");
+    }
+  });
+
   it("falha quando um componente lanca, em vez de gravar o fallback", async () => {
     function Broken(): never {
       throw new Error("quebrou");
