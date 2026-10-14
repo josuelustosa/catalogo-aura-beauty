@@ -67,6 +67,15 @@ npm run format:check
 
 Versões major (ex.: React Router 8, TypeScript 7, ESLint 10) **não devem ser adotadas automaticamente**.
 
+O `sharp` entra nessa regra mesmo em `0.x`, em que subir o segundo número (de
+`0.35` para `0.36`, por exemplo) equivale a uma major. Ele traz uma libvips nova e os
+binários `@img/*` de cada plataforma, e a saída AVIF/WebP pode mudar. O hash
+das fotos leva `sharp.versions.vips`, então todas as variantes de
+`public/img/` mudam de nome e são recodificadas no primeiro build (os
+originais baixados continuam no cache). Depois de atualizar, rode
+`npm run build` com a planilha real e confira o resumo
+`imagens_ok`/`imagens_falha` no log.
+
 Antes da atualização:
 
 - Ler o changelog oficial;
