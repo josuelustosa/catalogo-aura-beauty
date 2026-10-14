@@ -131,7 +131,7 @@
      ========================================================================== */
 
   --default-transition-duration: 200ms;
-  --default-transition-timing: ease;
+  --default-transition-timing-function: ease;
 }
 
 @layer base {
