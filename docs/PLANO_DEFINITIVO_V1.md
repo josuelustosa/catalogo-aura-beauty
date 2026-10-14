@@ -6,7 +6,9 @@ Complementa [CONTEXTO_IA.md](./CONTEXTO_IA.md), que guarda o estado consolidado 
 
 ---
 
-## 1. Onde estamos
+## 1. Onde estávamos
+
+Retrato da abertura do plano, mantido como linha de base. O estado atual está em [CONTEXTO_IA.md](./CONTEXTO_IA.md), em "Estado atual e pendências conhecidas".
 
 O site funciona como SPA: cinco catálogos numa rota dinâmica, busca com debounce, estados vazios padronizados e CTA de WhatsApp por produto. O que falta é tudo que transforma isso num site publicável.
 
@@ -509,6 +511,8 @@ Os números `#01`–`#37` são **referências internas deste plano** — o GitHu
 | 36  | `docs: reescreve o README`                                 | `documentation` | 34      | Substitui o template do Vite: o que é, stack, setup, variáveis, como a planilha alimenta o site, scripts e fluxo de deploy                                                                                                                                                                    |
 | 37  | `docs: consolida o CONTEXTO_IA com a arquitetura entregue` | `documentation` | 36      | `CONTEXTO_IA.md` descreve SSG, planilha e imagens **como implementados** (a substituição do `PLANO_IA.md` e o registro das decisões já foram feitos na abertura deste plano); armadilha do `npm ci` (§4.4) em `dependency-management.md`; fluxo de dados do §2.2 no lugar do diagrama do mock |
 
+> **Desvios do S5** (detalhe em cada issue): a origem do site é `SITE_URL`, lida no Node, e não `VITE_SITE_URL`; sem ela vale `VERCEL_PROJECT_PRODUCTION_URL`, que acompanha o domínio próprio sozinha, então a #34 não exige código e fica aberta só com os passos manuais, descritos no README. As metas do §9 já estavam batidas em produção antes de qualquer otimização (Lighthouse de 2026-10-14: desempenho 97–100, LCP de até 1,9 s no celular, CLS 0, 106 KB de JS); o S5 corrigiu o que o Lighthouse ainda apontava (rótulo dos banners, ordem dos headings nos catálogos e ilustrações em duas larguras) e aceitou, com a razão registrada na #35, os 52 KB de JS não usado (bundle único, porque o SSG proíbe `route.lazy`), os 7 KB de CSS bloqueante e os logos de Marcas em largura única. Os prazos de entrega não entram no site: são combinados pelo WhatsApp, e a issue #50 do GitHub fechou sem implementação.
+
 ### Backlog técnico (sem milestone)
 
 | Item                                                       | Nota                                                                                                                                                          |
@@ -581,7 +585,7 @@ Bloqueiam issues específicas e não dependem de código:
 - [ ] Fotos dos produtos subidas, **nomeadas com o `id` do produto** → #12
 - [x] ~~Artes dos dois banners 480×160~~ — banners em HTML/CSS (S4), sem arte
 - [x] Formas de entrega em Manaus, na seção "Como funciona" da Home → #28
-- [ ] Prazos de entrega, para o FAQ ("Em quanto tempo eu recebo?") e o JSON-LD → issue #50 do GitHub (saiu da #28 no fechamento do S4)
+- [x] ~~Prazos de entrega, para o FAQ e o JSON-LD~~ — dispensados: são combinados com a consultora pelo WhatsApp, como o FAQ já diz (issue #50 do GitHub, fechada no S5)
 - [x] Respostas do FAQ: originalidade, formas de pagamento e troca → #28
 - [x] Seções Catálogos e Marcas da Home: Marcas entrou; Catálogos ficou fora da Home no canvas → #28
 - [ ] Google Business Profile criado e verificado — fora do código, e a maior alavanca de SEO local → §8
