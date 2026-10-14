@@ -81,6 +81,7 @@ consultora/
 public/
 ├── ilustracoes/               # ilustrações de "Como funciona" (Home)
 ├── img/                       # fotos emitidas pelo build; gitignorado
+├── marcas/                    # logos brancos da seção Marcas (WebP, 400 px)
 └── rosa-aura-beauty.png       # rosa do logo, usada como máscara nos banners
 scripts/
 ├── atomic-write.ts            # grava por temporário + rename
@@ -105,6 +106,7 @@ src/
 │   ├── ProductCard.tsx        # card de produto, do catálogo e dos destaques
 │   └── WhatsAppFab.tsx        # botão fixo de WhatsApp, em todas as rotas
 ├── content/
+│   ├── brands.ts              # marcas da Home: logo, cor e catálogo de cada uma
 │   └── faq.ts                 # perguntas da Home; editar aqui, não no JSX
 ├── data/
 │   ├── images.generated.ts    # manifesto de fotos; gerado, gitignorado
@@ -117,7 +119,7 @@ src/
 ├── mocks/
 │   └── nav-item.mock.ts       # itens do menu + helpers de catálogo
 ├── pages/
-│   ├── Home/                  # hero, destaques, como funciona e FAQ
+│   ├── Home/                  # hero, destaques, marcas, como funciona e FAQ
 │   ├── CatalogHome.tsx        # /catalogo sem slug: seletor de catálogos
 │   ├── NotFound.tsx           # rota "*"
 │   └── Catalog/               # página + componentes exclusivos dela
@@ -345,6 +347,9 @@ Use sempre o token semântico, nunca a cor crua: `text-text-secondary` e não
   páginas de leitura), aplicados via `<Container>`. Exceção: o Header usa
   `max-w-page` sem o padding, para o trilho do menu rolar até a borda da tela.
 
+A única cor fora dos tokens é a das marcas parceiras na seção Marcas: é
+identidade de terceiros, não do tema, e vem de `content/brands.ts` pelo `style`.
+
 Padrões visuais em uso: foco com `focus-visible:ring-2 ring-focus-ring` (sobre
 `primary`, `focus-visible:outline-2 outline-accent`), feedback de clique com
 `active:scale-95`, cards em `rounded-lg border-border bg-surface shadow-sm`,
@@ -393,10 +398,10 @@ Implementado e verificado (`tsc -b` e `vite build` passam):
   todas as rotas), com `<head>`, JSON-LD, sitemap e robots por ambiente; rota
   desconhecida responde 404 de verdade;
 - Home com hero, destaques (coluna `destaque`: fila rolável no celular, grade
-  de quatro no desktop; a seção some sem nenhum), como
-  funciona com as formas de entrega, banners e FAQ; footer e botão flutuante de
-  WhatsApp em todas as rotas; banners no fim de cada catálogo (o do Instagram
-  só com `VITE_INSTAGRAM_URL`);
+  de quatro no desktop; a seção some sem nenhum), marcas (logo de cada uma com
+  link para o catálogo), como funciona com as formas de entrega, banners e FAQ;
+  footer e botão flutuante de WhatsApp em todas as rotas; banners no fim de
+  cada catálogo (o do Instagram só com `VITE_INSTAGRAM_URL`);
 - header com o menu num trilho de pílulas (frame "Header C" do canvas):
   centralizado no desktop e rolável no celular, onde acompanha a página atual
   e o foco do teclado (`useNavTrackScroll`);
@@ -406,10 +411,10 @@ Implementado e verificado (`tsc -b` e `vite build` passam):
   build continua falhando.
 
 O que está aberto — com critérios de aceite — está em
-[PLANO_DEFINITIVO_V1.md](./PLANO_DEFINITIVO_V1.md). Em resumo: as seções
-Catálogos e Marcas da Home estão em definição. S0 a S3 e a maior parte do S4 já foram
-entregues; as fotos reais dependem da consultora subir os arquivos no
-Cloudinary.
+[PLANO_DEFINITIVO_V1.md](./PLANO_DEFINITIVO_V1.md). Em resumo: a seção
+Catálogos ficou fora da Home no canvas, num frame à parte. S0 a S3 e a maior
+parte do S4 já foram entregues; as fotos reais dependem da consultora subir os
+arquivos no Cloudinary.
 
 `groupByBrand` continua sem consumidor: a listagem seccionada por marca foi
 movida para fora do escopo do V1 por falta de decisão de UX — ela convive mal

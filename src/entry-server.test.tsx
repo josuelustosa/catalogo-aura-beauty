@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { Outlet } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { BRANDS } from "./content/brands";
 import { render, renderWithRoutes } from "./entry-server";
 import { CATALOG_NAV_ITEMS } from "./mocks/nav-item.mock";
 import RouteErrorBoundary, {
@@ -68,6 +69,19 @@ describe("entry-server", () => {
       expect(html).toContain(product.title);
     }
     expect(html).toMatch(/<details[^>]* open=""/);
+  });
+
+  it("entrega as marcas como links para o catálogo de cada uma", async () => {
+    const html = await render("/");
+
+    expect(html).toContain('id="marcas"');
+    for (const brand of BRANDS) {
+      expect(html).toContain(`href="/catalogo/${brand.catalog}"`);
+      expect(html).toContain(`${brand.name}, ver catálogo`);
+      expect(html).toContain(
+        `src="${brand.logo}" alt="" width="${brand.width}" height="${brand.height}" loading="lazy"`,
+      );
+    }
   });
 
   it("so mostra o banner do Instagram com a URL configurada", async () => {
