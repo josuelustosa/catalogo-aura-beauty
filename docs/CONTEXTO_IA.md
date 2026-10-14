@@ -427,9 +427,9 @@ Implementado e verificado (`tsc -b` e `vite build` passam):
 
 O que está aberto — com critérios de aceite — está em
 [PLANO_DEFINITIVO_V1.md](./PLANO_DEFINITIVO_V1.md). Em resumo: a seção
-Catálogos ficou fora da Home no canvas, num frame à parte. S0 a S3 e a maior
-parte do S4 já foram entregues; as fotos reais dependem da consultora subir os
-arquivos no Cloudinary.
+Catálogos ficou fora da Home no canvas, num frame à parte. S0 a S4 já foram
+entregues; os prazos de entrega do FAQ esperam a consultora (issue #50), e as
+fotos reais dependem de ela subir os arquivos no Cloudinary.
 
 `groupByBrand` continua sem consumidor: a listagem seccionada por marca foi
 movida para fora do escopo do V1 por falta de decisão de UX — ela convive mal
