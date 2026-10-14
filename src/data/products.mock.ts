@@ -12,6 +12,7 @@ export const PRODUCTS: Product[] = [
     title: "Malbec Desodorante Colônia 100ml",
     price: 189.5,
     promoPrice: 149.5,
+    featured: true,
   },
   {
     id: "2",
@@ -25,6 +26,7 @@ export const PRODUCTS: Product[] = [
     title: "Kit Presente Hidratação Tododia 3 itens",
     price: 189.9,
     promoPrice: 159.9,
+    featured: true,
   },
   {
     id: "4",
@@ -38,6 +40,7 @@ export const PRODUCTS: Product[] = [
     title: "Colar Ponto de Luz Folheado a Ouro",
     price: 99.9,
     promoPrice: 79.9,
+    featured: true,
   },
   {
     id: "6",
@@ -57,6 +60,7 @@ export const PRODUCTS: Product[] = [
     brand: "OUI",
     title: "Perfume OUI Vanille Eau de Parfum 75ml",
     price: 219.9,
+    featured: true,
   },
   {
     id: "9",

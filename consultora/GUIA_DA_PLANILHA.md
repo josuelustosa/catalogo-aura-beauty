@@ -57,7 +57,7 @@ aba **publicar** isso não acontece):
 | `imagem_url`        | **Deixe em branco.** A foto entra pelo Cloudinary, com o nome igual ao código (veja "As fotos dos produtos"). Só preencha para uma foto do Drive. |
 | `ativo`             | A caixinha que põe o produto no site. Marcada = aparece. Desmarcada = não aparece.                                                                |
 | `ordem`             | Opcional. Número inteiro para ordenar dentro da marca (1 vem primeiro). Vazio vai para o fim.                                                     |
-| `destaque`          | Marque para o produto aparecer na seção de destaques (quando a página inicial estiver pronta).                                                    |
+| `destaque`          | Marque para o produto aparecer em **Destaques**, na página inicial. Sem nenhum marcado, a seção não aparece.                                      |
 | `atualizado_em`     | Opcional, só para o seu controle. O site não usa.                                                                                                 |
 
 Sugestão para os códigos: use o começo da marca + número, sempre com três

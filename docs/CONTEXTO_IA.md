@@ -79,7 +79,10 @@ apps-script/
 consultora/
 └── GUIA_DA_PLANILHA.md        # guia não técnico de uso da planilha
 public/
-└── img/                       # fotos emitidas pelo build; gitignorado
+├── ilustracoes/               # ilustrações de "Como funciona" (Home)
+├── img/                       # fotos emitidas pelo build; gitignorado
+├── marcas/                    # logos brancos da seção Marcas (WebP, 400 px)
+└── rosa-aura-beauty.png       # rosa do logo, usada como máscara nos banners
 scripts/
 ├── atomic-write.ts            # grava por temporário + rename
 ├── build-data.ts              # orquestra: planilha → imagens → gerados
@@ -93,26 +96,36 @@ src/
 ├── entry-server.tsx           # renderiza uma rota em HTML no Node (prerender)
 ├── main.tsx                   # hidrata ou renderiza, conforme a guarda de rota
 ├── components/                # UI compartilhada entre páginas
+│   ├── ContactBanners/        # banners de WhatsApp e Instagram (HTML, não imagem)
 │   ├── Container.tsx          # larguras "default" (80rem) e "narrow" (48rem)
 │   ├── EmptyState.tsx         # mensagem + saída para qualquer estado vazio
+│   ├── Footer/
 │   ├── Header/
-│   └── Picture.tsx            # <picture> AVIF/WebP lendo o manifesto
+│   ├── icons/                 # glifos reaproveitados (WhatsApp)
+│   ├── Picture.tsx            # <picture> AVIF/WebP lendo o manifesto
+│   ├── ProductCard.tsx        # card de produto, do catálogo e dos destaques
+│   └── WhatsAppFab.tsx        # botão fixo de WhatsApp, em todas as rotas
+├── content/
+│   ├── brands.ts              # marcas da Home: logo, cor e catálogo de cada uma
+│   └── faq.ts                 # perguntas da Home; editar aqui, não no JSX
 ├── data/
 │   ├── images.generated.ts    # manifesto de fotos; gerado, gitignorado
 │   ├── products.generated.ts  # gerado no build; gitignorado, não edite
 │   └── products.mock.ts       # fixture de fallback e de teste
 ├── hooks/
 │   ├── use-debounced-value.ts
+│   ├── use-nav-track-scroll.ts # trilho do menu segue a página atual e o foco
 │   └── use-route-meta.ts      # título/description/canonical na navegação SPA
 ├── mocks/
 │   └── nav-item.mock.ts       # itens do menu + helpers de catálogo
 ├── pages/
-│   ├── Home.tsx
+│   ├── Home/                  # hero, destaques, marcas, como funciona e FAQ
 │   ├── CatalogHome.tsx        # /catalogo sem slug: seletor de catálogos
 │   ├── NotFound.tsx           # rota "*"
 │   └── Catalog/               # página + componentes exclusivos dela
 ├── router/
 │   ├── index.tsx              # createBrowserRouter (toca window)
+│   ├── RouteErrorBoundary.tsx # telas de erro, sem stack
 │   └── tree.tsx               # árvore única de rotas, do cliente e do SSG
 ├── seo/                       # metadados, <head> e JSON-LD por rota
 ├── services/
@@ -126,8 +139,8 @@ Os testes vivem ao lado do código (`*.test.ts` em `scripts/` e `src/`).
 
 Convenção de pastas: componente usado por mais de uma página vai em
 `components/`; componente exclusivo de uma página vive na pasta daquela página
-(`pages/Catalog/CatalogCard.tsx`). Página com subcomponentes vira pasta com
-`index.tsx`.
+(`pages/Catalog/CatalogGrid.tsx`, `pages/Home/SectionHeading.tsx`). Página com
+subcomponentes vira pasta com `index.tsx`.
 
 ---
 
@@ -199,6 +212,14 @@ reset precisa ser síncrono; com efeito, o valor já debounced do termo antigo
 ainda seria propagado contra a lista nova e a tela piscaria "nenhum produto
 encontrado". Não troque por `useEffect`.
 
+**O termo vive em `?q=`.** O estado nasce do `q` da URL e um efeito escreve de
+volta o valor já debounced, com `replace` (digitar não empilha histórico) e
+`preventScrollReset` (sem ele, o `ScrollRestoration` subiria a página a cada
+termo). O efeito só mexe no `q`, pela forma funcional do `setSearchParams` (a
+forma de objeto apagaria `utm_*`), e sai cedo quando a URL já tem o termo. Como
+o HTML pré-renderizado não tem query, a guarda do `main.tsx` não hidrata URLs
+com `q` (ver Pré-renderização).
+
 O corte de duas colunas do grid é `md` (768px), não `sm` (640px): em portrait de
 tablet o card ainda respira, e a 640px dois cards deixariam título e preço
 apertados.
@@ -248,7 +269,9 @@ dist/index.html (template do build:client) ─────────┤
 - **A guarda de hidratação** (`main.tsx`): `hydrateRoot` só quando
   `<html data-prerender-path>` é igual a `location.pathname`. O `404.html` é
   servido em qualquer caminho desconhecido; hidratá-lo noutra URL daria
-  mismatch. Não "simplifique" para sempre hidratar.
+  mismatch. Também não hidrata quando a URL traz `?q=`: o HTML sai sem filtro
+  e o cliente lê o termo no primeiro render. `utm_*` e outros parâmetros
+  continuam hidratando. Não "simplifique" para sempre hidratar.
 - **`scripts/` não importa `src/**`em runtime** (os imports de`src`não têm
 extensão): o`prerender.ts`consome só o`dist-ssr`, pelo contrato
 `ssg/entry-contract.ts`.
@@ -293,7 +316,8 @@ explícita, isso apagaria os literais.
 ## Integração com WhatsApp
 
 `utils/whatsapp.ts` monta `https://wa.me/<numero>?text=<mensagem>` com o título
-do produto na mensagem. O número vem de `VITE_WHATSAPP_NUMBER`, em formato
+do produto na mensagem; sem título (botão flutuante, hero e banner), a mensagem
+é genérica. O número vem de `VITE_WHATSAPP_NUMBER`, em formato
 internacional só com dígitos (`5511999999999`).
 
 Sem a variável, o link ainda abre o WhatsApp com a mensagem pronta, deixando o
@@ -317,13 +341,28 @@ Use sempre o token semântico, nunca a cor crua: `text-text-secondary` e não
 - **semânticos**: `primary`, `primary-hover`, `accent`, `background`, `surface`,
   `surface-soft`, `surface-highlight`, `text`, `text-secondary`, `text-inverse`,
   `text-brand`, `border`, `divider`, `focus-ring`, `hover-overlay`,
-  `active-overlay`;
+  `active-overlay`; sobre fundo `primary`, as versões `-inverse`:
+  `divider-inverse` (linha), `surface-soft-inverse` (trilho do menu) e
+  `hover-overlay-inverse`;
 - **layout**: `max-w-page` (80rem, grid de 4 cards) e `max-w-narrow` (48rem,
-  páginas de leitura), aplicados via `<Container>`.
+  páginas de leitura), aplicados via `<Container>`. Exceção: o Header usa
+  `max-w-page` sem o padding, para o trilho do menu rolar até a borda da tela.
 
-Padrões visuais em uso: foco com `focus-visible:ring-2 ring-focus-ring`,
-feedback de clique com `active:scale-95`, cards em `rounded-lg border-border
-bg-surface shadow-sm`, imagens `aspect-square` com `loading="lazy"`.
+A única cor fora dos tokens é a das marcas parceiras na seção Marcas: é
+identidade de terceiros, não do tema, e vem de `content/brands.ts` pelo `style`.
+
+Padrões visuais em uso: foco com `focus-visible:ring-2 ring-focus-ring` (sobre
+`primary`, `focus-visible:outline-2 outline-accent`), feedback de clique com
+`active:scale-95`, cards em `rounded-lg border-border bg-surface shadow-sm`,
+imagens `aspect-square` com `loading="lazy"`.
+
+Movimento: transições de 200 ms com `ease` (`--default-transition-duration` e
+`--default-transition-timing-function`). Mudança grande de cor, como o botão
+fantasma do hero que fica preenchido no hover, usa 300 ms `ease-out`, o ritmo
+do trilho do menu. Rolagem suave só por JS e só onde foi pedida (botão do hero
+até os destaques, trilho do menu), sempre com `prefers-reduced-motion`. O
+`html` **não** tem `scroll-behavior: smooth`: o `ScrollRestoration` rola a
+janela a cada troca de página, e tudo viraria animação.
 
 ### Tipografia
 
@@ -366,19 +405,31 @@ Implementado e verificado (`tsc -b` e `vite build` passam):
   `<EmptyState>`;
 - HTML pré-renderizado por rota, hidratado no cliente (conferido no Chrome em
   todas as rotas), com `<head>`, JSON-LD, sitemap e robots por ambiente; rota
-  desconhecida responde 404 de verdade.
+  desconhecida responde 404 de verdade;
+- Home com hero (o segundo botão leva aos destaques, com o maior desconto
+  entre eles no selo; sem destaque, volta a "Ver catálogos"), destaques (coluna
+  `destaque`: fila rolável no celular, grade de quatro no desktop; a seção some
+  sem nenhum), marcas (logo de cada uma com link para o catálogo), como funciona
+  com as formas de entrega, banners e FAQ; footer e botão flutuante de WhatsApp
+  em todas as rotas; banners no fim de cada catálogo (o do Instagram só com
+  `VITE_INSTAGRAM_URL`);
+- header com o menu num trilho de pílulas (frame "Header C" do canvas):
+  centralizado no desktop e rolável no celular, onde acompanha a página atual
+  e o foco do teclado (`useNavTrackScroll`);
+- página nova abre no topo, e voltar ou avançar devolvem a rolagem
+  (`ScrollRestoration` no `App`); entrada aberta direto pela URL ganha uma key
+  no histórico (`router/index.tsx`), senão a rolagem de outra página aberta
+  antes na aba seria restaurada no lugar da âncora;
+- erro de render cai em `RouteErrorBoundary` (dentro do layout) ou em
+  `RootErrorBoundary` (o layout lançou), nunca na página padrão do
+  react-router, que mostra o stack. No prerender os boundaries não atuam: o
+  build continua falhando.
 
 O que está aberto — com critérios de aceite — está em
-[PLANO_DEFINITIVO_V1.md](./PLANO_DEFINITIVO_V1.md). Em resumo: `Home.tsx` ainda
-placeholder (a `<h1>` "Página Inicial" é indexada até o S4), sem footer nem
-botão flutuante. A identidade Aura Beauty (S0), a Planilha Google com testes
-(S1), o pipeline de imagens (S2) e o SSG com SEO técnico (S3) já foram
-entregues; as fotos reais dependem da consultora subir os arquivos no
-Cloudinary.
-
-Ao levar a busca para `?q=` (S4), leia o `q` **depois** da hidratação: no
-primeiro render o servidor não tem query string, e qualquer diferença vira
-mismatch.
+[PLANO_DEFINITIVO_V1.md](./PLANO_DEFINITIVO_V1.md). Em resumo: a seção
+Catálogos ficou fora da Home no canvas, num frame à parte. S0 a S4 já foram
+entregues; os prazos de entrega do FAQ esperam a consultora (issue #50), e as
+fotos reais dependem de ela subir os arquivos no Cloudinary.
 
 `groupByBrand` continua sem consumidor: a listagem seccionada por marca foi
 movida para fora do escopo do V1 por falta de decisão de UX — ela convive mal

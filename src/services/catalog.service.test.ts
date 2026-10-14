@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { Product } from "../types/product.type.ts";
 import {
   getCatalogBySlug,
+  getFeaturedProducts,
   getProductsByBrands,
   groupByBrand,
+  maxDiscountPercent,
   searchProducts,
 } from "./catalog.service.ts";
 
@@ -55,7 +57,31 @@ describe("catalog.service", () => {
     expect(groups[0].products.map((item) => item.id)).toEqual(["1", "3"]);
   });
 
+  it("devolve so os destaques, na ordem da planilha", () => {
+    const featured = getFeaturedProducts();
+
+    expect(featured.map((item) => item.title)).toEqual([
+      "Malbec Desodorante Colônia 100ml",
+      "Kit Presente Hidratação Tododia 3 itens",
+      "Colar Ponto de Luz Folheado a Ouro",
+      "Perfume OUI Vanille Eau de Parfum 75ml",
+    ]);
+  });
+
   it("retorna null para slug inexistente", () => {
     expect(getCatalogBySlug("nao-existe")).toBeNull();
+  });
+
+  it("calcula o maior desconto dos produtos, arredondado", () => {
+    const base = product("1", "Natura", "Hidratante");
+
+    expect(maxDiscountPercent([])).toBe(0);
+    expect(maxDiscountPercent([base])).toBe(0);
+    expect(
+      maxDiscountPercent([
+        { ...base, price: 189.5, promoPrice: 149.5 },
+        { ...base, price: 100, promoPrice: 90 },
+      ]),
+    ).toBe(21);
   });
 });

@@ -7,7 +7,11 @@ const fragment = (body: string) =>
 const page = (pathname: string, root: string) =>
   `<!doctype html><html lang="pt-br" data-prerender-path="${pathname}"><head><title>T</title></head><body><div id="root">${root}</div></body></html>`;
 
-const catalogBody = `<h1>Natura &amp; Avon</h1><article><img src="/img/nat-001-320.abcd1234.webp"/><a href="https://wa.me/5592999999999?text=Ol%C3%A1">Comprar</a></article>`;
+const PREFIX = "Olá! Tenho interesse neste produto do catálogo: ";
+const productLink = `https://wa.me/5592999999999?text=${encodeURIComponent(`${PREFIX}Kit`)}`;
+const genericLink = `https://wa.me/5592999999999?text=${encodeURIComponent("Olá! Vim pelo catálogo")}`;
+
+const catalogBody = `<h1>Natura &amp; Avon</h1><article><img src="/img/nat-001-320.abcd1234.webp"/><a href="${productLink}">Comprar</a></article><a aria-label="Falar com a Aura Beauty no WhatsApp" href="${genericLink}"></a>`;
 
 function check(overrides: Partial<PageCheck> = {}): PageCheck {
   const body = fragment(catalogBody);
@@ -21,6 +25,7 @@ function check(overrides: Partial<PageCheck> = {}): PageCheck {
       hasImages: true,
     },
     whatsappNumber: "5592999999999",
+    productMessagePrefix: PREFIX,
     imageFiles: new Set(["nat-001-320.abcd1234.webp"]),
     production: true,
     ...overrides,
@@ -54,7 +59,7 @@ describe("checkPage", () => {
         "fallback de Suspense no HTML (<!--$!-->)",
         "fallback de Suspense no HTML (Carregando)",
         "0 <h1>, esperado 1",
-        "catálogo com produtos sem link wa.me/5592999999999",
+        'produtos sem o link "Comprar agora" (wa.me/5592999999999)',
         "catálogo com foto no manifesto, mas nenhuma /img/ no HTML",
       ]),
     );
@@ -89,8 +94,20 @@ describe("checkPage", () => {
     ]);
   });
 
+  it("o link generico do botao flutuante nao conta como link de produto", () => {
+    const body = fragment(
+      catalogBody.replace(/<article>.*<\/article>/, "<article></article>"),
+    );
+
+    expect(
+      checkPage(
+        check({ fragment: body, page: page("/catalogo/natura-e-avon", body) }),
+      ).errors,
+    ).toContain('produtos sem o link "Comprar agora" (wa.me/5592999999999)');
+  });
+
   it("sem numero: falha em producao e so avisa fora dela", () => {
-    const body = fragment(catalogBody.replace("5592999999999", ""));
+    const body = fragment(catalogBody.replaceAll("5592999999999", ""));
     const base = {
       fragment: body,
       page: page("/catalogo/natura-e-avon", body),

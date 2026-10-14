@@ -125,6 +125,7 @@ async function main(): Promise<void> {
       fragment: html,
       expectation: entry.describePage(pathname),
       whatsappNumber: entry.WHATSAPP_NUMBER,
+      productMessagePrefix: entry.PRODUCT_MESSAGE_PREFIX,
       imageFiles,
       production,
     });

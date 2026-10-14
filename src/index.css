@@ -67,6 +67,9 @@
   /* Destaques sólidos */
   --color-surface-highlight: var(--color-bege);
 
+  /* Destaque suave sobre fundo primary (trilho do menu do header) */
+  --color-surface-soft-inverse: rgb(255 225 223 / 10%);
+
   /* ==========================================================================
      TEXT
      ========================================================================== */
@@ -95,11 +98,15 @@
   --color-border: rgb(92 49 45 / 12%);
   --color-divider: rgb(92 49 45 / 16%);
 
+  /* Linha sobre fundo primary (footer, arte do hero, trilho do menu) */
+  --color-divider-inverse: rgb(255 225 223 / 24%);
+
   /* ==========================================================================
      STATES
      ========================================================================== */
 
   --color-hover-overlay: rgb(133 71 66 / 8%);
+  --color-hover-overlay-inverse: rgb(255 225 223 / 12%);
   --color-active-overlay: rgb(133 71 66 / 16%);
   --color-focus-ring: rgb(133 71 66 / 35%);
 
@@ -124,5 +131,14 @@
      ========================================================================== */
 
   --default-transition-duration: 200ms;
-  --default-transition-timing: ease;
+  --default-transition-timing-function: ease;
+}
+
+@layer base {
+  /* O footer encosta no fim da tela mesmo em página curta (404, busca vazia). */
+  #root {
+    display: flex;
+    min-height: 100dvh;
+    flex-direction: column;
+  }
 }

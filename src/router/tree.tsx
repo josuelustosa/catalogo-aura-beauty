@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { Outlet, type RouteObject } from "react-router";
 
 import App from "../App";
+import RouteErrorBoundary, { RootErrorBoundary } from "./RouteErrorBoundary";
 import { routes } from "./routes";
 
 /**
@@ -23,10 +24,13 @@ export function createAppRoutes(): RouteObject[] {
   return [
     {
       element: <App />,
+      errorElement: <RootErrorBoundary />,
       children: [
         {
           path: "/",
           element: <Outlet />,
+          // Dentro do <App />: o erro de uma página mantém Header e Footer.
+          errorElement: <RouteErrorBoundary />,
           children: wrappedRoutes,
         },
       ],

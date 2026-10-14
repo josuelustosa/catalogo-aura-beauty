@@ -16,7 +16,12 @@ const app = (
 // servido em qualquer caminho desconhecido com o markup de /404; hidratá-lo
 // em /catalogo/xpto gera mismatch, e o React joga o HTML fora com erro no
 // console. Nesses casos (e no dev, sem prerender) a renderização é do zero.
-if (document.documentElement.dataset.prerenderPath === location.pathname) {
+// O mesmo vale para `?q=`: o HTML sai sem filtro e o cliente já nasce filtrado.
+const isPrerendered =
+  document.documentElement.dataset.prerenderPath === location.pathname &&
+  !new URLSearchParams(location.search).has("q");
+
+if (isPrerendered) {
   hydrateRoot(container, app);
 } else {
   createRoot(container).render(app);

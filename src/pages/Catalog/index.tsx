@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
-import { useParams } from "react-router";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useSearchParams } from "react-router";
 
+import ContactBanners from "../../components/ContactBanners";
 import Container from "../../components/Container";
 import EmptyState from "../../components/EmptyState";
 import { useDebouncedValue } from "../../hooks/use-debounced-value";
@@ -17,8 +18,35 @@ type CatalogContentProps = {
 };
 
 function CatalogContent({ slug }: CatalogContentProps) {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(
+    () => searchParams.get("q") ?? "",
+  );
   const debouncedSearchTerm = useDebouncedValue(searchTerm);
+  const urlTerm = searchParams.get("q") ?? "";
+
+  // A URL acompanha o termo já debounced, sem empilhar histórico. Só mexe no
+  // `q`: a forma funcional preserva `utm_*`, e a guarda evita navegar à toa.
+  useEffect(() => {
+    const term = debouncedSearchTerm.trim();
+    if (term === urlTerm) {
+      return;
+    }
+
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        if (term) {
+          next.set("q", term);
+        } else {
+          next.delete("q");
+        }
+        return next;
+      },
+      // Sem preventScrollReset, o ScrollRestoration subiria a página a cada termo.
+      { replace: true, preventScrollReset: true },
+    );
+  }, [debouncedSearchTerm, urlTerm, setSearchParams]);
 
   const catalog = useMemo(() => getCatalogBySlug(slug), [slug]);
 
@@ -68,6 +96,8 @@ function CatalogContent({ slug }: CatalogContentProps) {
           </p>
         </>
       )}
+
+      <ContactBanners className="mt-12 mb-16" />
     </Container>
   );
 }
