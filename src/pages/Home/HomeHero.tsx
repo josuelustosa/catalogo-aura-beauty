@@ -1,7 +1,12 @@
+import type { MouseEvent } from "react";
 import { Link } from "react-router";
 
 import Container from "../../components/Container";
 import WhatsAppIcon from "../../components/icons/WhatsAppIcon";
+import {
+  getFeaturedProducts,
+  maxDiscountPercent,
+} from "../../services/catalog.service";
 import { buildWhatsAppLink } from "../../utils/whatsapp";
 
 type ArtCard = {
@@ -89,6 +94,77 @@ function HeroArt() {
   );
 }
 
+const ghostCta = `group relative inline-flex min-h-12 flex-[1_1_220px] items-center justify-center gap-2 rounded-full border-[1.5px] border-primary px-6 py-3 text-[15px] font-semibold text-text-brand transition-all duration-300 ease-out hover:bg-primary hover:text-text-inverse active:scale-95 ${ctaFocus}`;
+
+function ArrowIcon({ path }: { path: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-[18px] w-[18px] shrink-0"
+    >
+      <path d={path} />
+    </svg>
+  );
+}
+
+/**
+ * Rolagem suave só neste clique: no html inteiro, o ScrollRestoration também
+ * animaria a volta ao topo a cada troca de página. Sem JS, vale a âncora.
+ */
+function glideToFeatured(event: MouseEvent<HTMLAnchorElement>) {
+  const section = document.getElementById("destaques");
+  if (!section) {
+    return;
+  }
+
+  event.preventDefault();
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  section.scrollIntoView({
+    behavior: reduceMotion ? "auto" : "smooth",
+    block: "start",
+  });
+  // Como numa âncora, o Tab seguinte parte da seção.
+  section.focus({ preventScroll: true });
+}
+
+/**
+ * Leva aos destaques: "Ver ofertas" com o maior desconto entre eles, ou "Ver
+ * destaques" sem promoção. Sem destaque a seção some, e o botão volta a
+ * apontar para os catálogos.
+ */
+function SecondaryCta() {
+  const featured = getFeaturedProducts();
+  if (featured.length === 0) {
+    return (
+      <Link to="/catalogo" className={ghostCta}>
+        Ver catálogos
+        <ArrowIcon path="M5 12h14 M13 6l6 6-6 6" />
+      </Link>
+    );
+  }
+
+  const discount = maxDiscountPercent(featured);
+  return (
+    <a href="#destaques" onClick={glideToFeatured} className={ghostCta}>
+      {discount > 0 ? "Ver ofertas" : "Ver destaques"}
+      <ArrowIcon path="M12 5v14 M6 13l6 6 6-6" />
+      {/* Espaço só para o nome do link: "Ver ofertas até 21% off". */}{" "}
+      {discount > 0 ? (
+        // O contorno na cor do fundo do hero recorta a borda do botão.
+        <span className="absolute -top-3.25 -right-2 -rotate-3 rounded-full border-2 border-[color-mix(in_srgb,var(--color-accent)_50%,var(--color-surface))] bg-primary px-2.5 py-0.75 text-xs font-bold whitespace-nowrap text-text-inverse shadow-[0_4px_10px_color-mix(in_srgb,var(--color-primary-hover)_28%,transparent)] transition-colors duration-300 ease-out group-hover:bg-accent group-hover:text-primary">
+          {`até ${discount}% off`}
+        </span>
+      ) : null}
+    </a>
+  );
+}
+
 function HomeHero() {
   return (
     <section
@@ -139,24 +215,7 @@ function HomeHero() {
                 <WhatsAppIcon className="h-[18px] w-[18px]" />
                 Chamar no WhatsApp
               </a>
-              <Link
-                to="/catalogo"
-                className={`inline-flex min-h-12 flex-[1_1_220px] items-center justify-center gap-2 rounded-full border-[1.5px] border-primary bg-surface px-6 py-3 text-[15px] font-semibold text-text-brand transition-all hover:bg-surface-soft active:scale-95 ${ctaFocus}`}
-              >
-                Ver catálogos
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-[18px] w-[18px] shrink-0"
-                >
-                  <path d="M5 12h14 M13 6l6 6-6 6" />
-                </svg>
-              </Link>
+              <SecondaryCta />
             </div>
           </div>
 

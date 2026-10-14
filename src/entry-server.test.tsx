@@ -11,6 +11,7 @@ import RouteErrorBoundary, {
 import {
   getCatalogBySlug,
   getFeaturedProducts,
+  maxDiscountPercent,
 } from "./services/catalog.service";
 import { HOME_HEADING } from "./ssg/page-expectations";
 import { formatPrice } from "./utils/format-price";
@@ -69,6 +70,20 @@ describe("entry-server", () => {
       expect(html).toContain(product.title);
     }
     expect(html).toMatch(/<details[^>]* open=""/);
+  });
+
+  it("leva o hero aos destaques com o maior desconto entre eles", async () => {
+    const html = await render("/");
+    const discount = maxDiscountPercent(getFeaturedProducts());
+
+    expect(discount).toBeGreaterThan(0);
+    expect(html).toContain('id="destaques"');
+    expect(html).toContain('href="#destaques"');
+    expect(html).toContain("Ver ofertas");
+    expect(html).toContain(`até ${discount}% off`);
+    expect(html).toContain(
+      "Seleção da consultora, com as ofertas de todos os catálogos.",
+    );
   });
 
   it("entrega as marcas como links para o catálogo de cada uma", async () => {

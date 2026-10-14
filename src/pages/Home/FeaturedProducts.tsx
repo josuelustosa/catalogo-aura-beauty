@@ -13,14 +13,17 @@ function FeaturedProducts() {
 
   return (
     <section
+      id="destaques"
       aria-labelledby="destaques-title"
-      className="bg-surface py-[clamp(48px,5vw,72px)]"
+      // Recebe o foco quando o hero rola até aqui: o Tab seguinte continua na seção.
+      tabIndex={-1}
+      className="bg-surface py-[clamp(48px,5vw,72px)] outline-none"
     >
       <Container>
         <SectionHeading
           id="destaques-title"
           title="Destaques"
-          subtitle="Seleção da consultora, de todos os catálogos."
+          subtitle="Seleção da consultora, com as ofertas de todos os catálogos."
         />
 
         {/* No celular, fila rolável em que o próximo card aparece; no desktop, grade. */}

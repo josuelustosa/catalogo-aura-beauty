@@ -356,6 +356,14 @@ Padrões visuais em uso: foco com `focus-visible:ring-2 ring-focus-ring` (sobre
 `active:scale-95`, cards em `rounded-lg border-border bg-surface shadow-sm`,
 imagens `aspect-square` com `loading="lazy"`.
 
+Movimento: transições de 200 ms com `ease` (`--default-transition-duration` e
+`--default-transition-timing-function`). Mudança grande de cor, como o botão
+fantasma do hero que fica preenchido no hover, usa 300 ms `ease-out`, o ritmo
+do trilho do menu. Rolagem suave só por JS e só onde foi pedida (botão do hero
+até os destaques, trilho do menu), sempre com `prefers-reduced-motion`. O
+`html` **não** tem `scroll-behavior: smooth`: o `ScrollRestoration` rola a
+janela a cada troca de página, e tudo viraria animação.
+
 ### Tipografia
 
 As fontes do Google Fonts são entregues localmente pelos pacotes Fontsource,
@@ -398,11 +406,13 @@ Implementado e verificado (`tsc -b` e `vite build` passam):
 - HTML pré-renderizado por rota, hidratado no cliente (conferido no Chrome em
   todas as rotas), com `<head>`, JSON-LD, sitemap e robots por ambiente; rota
   desconhecida responde 404 de verdade;
-- Home com hero, destaques (coluna `destaque`: fila rolável no celular, grade
-  de quatro no desktop; a seção some sem nenhum), marcas (logo de cada uma com
-  link para o catálogo), como funciona com as formas de entrega, banners e FAQ;
-  footer e botão flutuante de WhatsApp em todas as rotas; banners no fim de
-  cada catálogo (o do Instagram só com `VITE_INSTAGRAM_URL`);
+- Home com hero (o segundo botão leva aos destaques, com o maior desconto
+  entre eles no selo; sem destaque, volta a "Ver catálogos"), destaques (coluna
+  `destaque`: fila rolável no celular, grade de quatro no desktop; a seção some
+  sem nenhum), marcas (logo de cada uma com link para o catálogo), como funciona
+  com as formas de entrega, banners e FAQ; footer e botão flutuante de WhatsApp
+  em todas as rotas; banners no fim de cada catálogo (o do Instagram só com
+  `VITE_INSTAGRAM_URL`);
 - header com o menu num trilho de pílulas (frame "Header C" do canvas):
   centralizado no desktop e rolável no celular, onde acompanha a página atual
   e o foco do teclado (`useNavTrackScroll`);

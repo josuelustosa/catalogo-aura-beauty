@@ -5,6 +5,7 @@ import {
   getFeaturedProducts,
   getProductsByBrands,
   groupByBrand,
+  maxDiscountPercent,
   searchProducts,
 } from "./catalog.service.ts";
 
@@ -69,5 +70,18 @@ describe("catalog.service", () => {
 
   it("retorna null para slug inexistente", () => {
     expect(getCatalogBySlug("nao-existe")).toBeNull();
+  });
+
+  it("calcula o maior desconto dos produtos, arredondado", () => {
+    const base = product("1", "Natura", "Hidratante");
+
+    expect(maxDiscountPercent([])).toBe(0);
+    expect(maxDiscountPercent([base])).toBe(0);
+    expect(
+      maxDiscountPercent([
+        { ...base, price: 189.5, promoPrice: 149.5 },
+        { ...base, price: 100, promoPrice: 90 },
+      ]),
+    ).toBe(21);
   });
 });

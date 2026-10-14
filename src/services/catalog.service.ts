@@ -70,6 +70,19 @@ export function getFeaturedProducts(): Product[] {
   return PRODUCTS.filter((product) => product.featured === true);
 }
 
+/** Maior desconto entre os produtos, em % inteiro; 0 sem promoção. */
+export function maxDiscountPercent(products: readonly Product[]): number {
+  return products.reduce((max, product) => {
+    if (product.promoPrice === undefined) {
+      return max;
+    }
+    return Math.max(
+      max,
+      Math.round((1 - product.promoPrice / product.price) * 100),
+    );
+  }, 0);
+}
+
 /**
  * Orquestra a regra de negócio do catálogo:
  * slug -> item do menu -> marcas do grupo -> produtos daquelas marcas.
