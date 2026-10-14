@@ -34,7 +34,7 @@ function Footer() {
             <p className="text-accent">
               Desenvolvido por{" "}
               <a
-                href="https://github.com/josuelustosa"
+                href="https://links-josue-lustosa.vercel.app/"
                 target="_blank"
                 rel="noreferrer"
                 className="rounded-sm font-semibold underline underline-offset-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
